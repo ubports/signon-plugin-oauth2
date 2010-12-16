@@ -1,0 +1,16 @@
+Makefile*
+moc_*
+*.o
+.moc
+.obj
+*.so
+*.so.*
+*.a
+*~
+builddir
+core
+*.moc
+
+*pro.user
+build-stamp
+configure-stamp

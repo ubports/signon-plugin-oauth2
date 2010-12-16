@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<testdefinition version="1.0">
+  <suite name="signon-oauth2plugin-tests" domain="Accounts and SSO">
+<set description="signon-oauth2plugin-tests:signon-oauth2plugin-tests" name="./signon-oauth2plugin-tests" feature="Google">
+      <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests</description>
+      <case name="signon-oauth2plugin-tests-testPlugin" type="Functional" level="Component">
+        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPlugin</description>
+        <step>/usr/bin/signon-oauth2plugin-tests testPlugin</step>
+      </case>
+      <case name="signon-oauth2plugin-tests-testPluginType" type="Functional" level="Component">
+        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginType</description>
+        <step>/usr/bin/signon-oauth2plugin-tests testPluginType</step>
+      </case>
+      <case name="signon-oauth2plugin-tests-testPluginMechanisms" type="Functional" level="Component">
+        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginMechanisms</description>
+        <step>/usr/bin/signon-oauth2plugin-tests testPluginMechanisms</step>
+      </case>
+      <case name="signon-oauth2plugin-tests-testPluginCancel" type="Functional" level="Component">
+        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginCancel</description>
+        <step>/usr/bin/signon-oauth2plugin-tests testPluginCancel</step>
+      </case>
+      <case name="signon-oauth2plugin-tests-testPluginProcess" type="Functional" level="Component">
+        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginProcess</description>
+        <step>/usr/bin/signon-oauth2plugin-tests testPluginProcess</step>
+      </case>
+      <case name="signon-oauth2plugin-tests-testPluginUseragentUserActionFinished" type="Functional" level="Component">
+        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginUseragentUserActionFinished</description>
+        <step>/usr/bin/signon-oauth2plugin-tests testPluginProcess</step>
+      </case>
+      <case name="signon-oauth2plugin-tests-testPluginWebserverUserActionFinished" type="Functional" level="Component">
+        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginWebserverUserActionFinished</description>
+        <step>/usr/bin/signon-oauth2plugin-tests testPluginProcess</step>
+      </case>
+      <environments>
+        <scratchbox>true</scratchbox>
+        <hardware>true</hardware>
+      </environments>
+    </set>
+  </suite>
+</testdefinition>
