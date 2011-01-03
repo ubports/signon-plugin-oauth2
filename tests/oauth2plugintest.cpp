@@ -20,25 +20,6 @@
  * 02110-1301 USA
  */
 
-/* -*- Mode: C++; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
-
-/*
- * This file is part of Harmattan Signon Daemon test suite.
- *
- * Copyright (C) 2010 Nokia Corporation. All rights reserved.
- *
- * Contact: Dominic Velikakath <mailto:dominic.velikakath@nokia.com>
- * Contact: Andrei Laperie <mailto:Andrei.Laperie@nokia.com>
- *
- * This software, including documentation, is protected by copyright
- * controlled by Nokia Corporation. All rights are reserved.  Copying,
- * including reproducing, storing, adapting or translating, any or all
- * of this material requires the prior written consent of Nokia
- * Corporation.  This material also contains confidential information
- * which may not be disclosed to others without the prior written
- * consent of Nokia.
- */
-
 #include <QtTest/QtTest>
 
 #include "oauth2plugin.h"
