@@ -23,10 +23,6 @@
         <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginProcess</description>
         <step>/usr/bin/signon-oauth2plugin-tests testPluginProcess</step>
       </case>
-      <case name="signon-oauth2plugin-tests-testPluginUseragentUserActionFinished" type="Functional" level="Component">
-        <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginUseragentUserActionFinished</description>
-        <step>/usr/bin/signon-oauth2plugin-tests testPluginProcess</step>
-      </case>
       <case name="signon-oauth2plugin-tests-testPluginWebserverUserActionFinished" type="Functional" level="Component">
         <description>signon-oauth2plugin-tests:signon-oauth2plugin-tests:testPluginWebserverUserActionFinished</description>
         <step>/usr/bin/signon-oauth2plugin-tests testPluginProcess</step>
