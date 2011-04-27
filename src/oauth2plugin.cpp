@@ -20,19 +20,20 @@
  * 02110-1301 USA
  */
 
-#include <QtNetwork/QHttp>
 #include <QUrl>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QNetworkProxy>
-#include <QHttp>
 #include <QDateTime>
 #include <QCryptographicHash>
 
 #include "oauth2plugin.h"
 #include "oauth2tokendata.h"
 
+#ifdef TRACE
+#undef TRACE
+#endif
 #define TRACE() qDebug() << __FILE__ << __LINE__ << __func__ << ":\t"
 
 using namespace SignOn;
@@ -94,17 +95,17 @@ namespace OAuth2PluginNS {
 
     const QByteArray CONTENT_TYPE = QByteArray("Content-Type");
     const QByteArray CONTENT_APP_URLENCODED = QByteArray("application/x-www-form-urlencoded");
+    const QByteArray CONTENT_APP_JSON = QByteArray("application/json");
     const QByteArray CONTENT_TEXT_PLAIN = QByteArray("text/plain");
 
 
     class OAuth2Plugin::Private
     {
     public:
-        Private(OAuth2Plugin* parent) : m_parent(parent)
+        Private(OAuth2Plugin* parent) : m_parent(parent),
+            m_manager(0), m_reply(0)
         {
             TRACE();
-            m_manager = NULL;
-            m_reply = NULL;
             m_networkProxy = QNetworkProxy::applicationProxy();
             m_oauth1Token.clear();
             m_oauth1TokenSecret.clear();
@@ -122,11 +123,9 @@ namespace OAuth2PluginNS {
         }
 
         OAuth2Plugin *m_parent;
-        QEventLoop m_loop;
         QNetworkAccessManager *m_manager;
         QNetworkProxy m_networkProxy;
         QNetworkReply *m_reply;
-        QString m_proxyUrl;
         QString m_mechanism;
         OAuth2PluginData m_webserverSession;
         OAuth2PluginData m_useragentSession;
@@ -267,7 +266,6 @@ namespace OAuth2PluginNS {
         QString proxy = inData.NetworkProxy();
         //set proxy from params
         if (!proxy.isEmpty()) {
-            d->m_proxyUrl =proxy;
             QUrl proxyUrl(proxy);
             if (!proxyUrl.host().isEmpty()) {
                 d->m_networkProxy = QNetworkProxy(
@@ -657,11 +655,11 @@ namespace OAuth2PluginNS {
         if (reply->hasRawHeader(CONTENT_TYPE)) {
 
             // Handling application/json content type
-            if (reply->rawHeader(CONTENT_TYPE) == QByteArray("application/json")) {
+            if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_JSON)) {
                 TRACE()<< "application/json content received";
-                QByteArray accessToken = this->parseReply(replyContent, QByteArray("\"access_token\""));
-                QByteArray expiresIn = this->parseReply(replyContent, QByteArray("\"expires_in\""));
-                QByteArray refreshToken = this->parseReply(replyContent, QByteArray("\"refresh_token\""));
+                QByteArray accessToken = parseReply(replyContent, QByteArray("\"access_token\""));
+                QByteArray expiresIn = parseReply(replyContent, QByteArray("\"expires_in\""));
+                QByteArray refreshToken = parseReply(replyContent, QByteArray("\"refresh_token\""));
 
                 if (accessToken.isEmpty()) {
                     TRACE()<< "Access token is empty";
@@ -676,11 +674,11 @@ namespace OAuth2PluginNS {
                 }
             }
             // Added to test with facebook Graph API's (handling text/plain content type)
-            else if (reply->rawHeader(CONTENT_TYPE) == QByteArray("text/plain; charset=UTF-8")){
+            else if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN)){
                 TRACE()<< "text/plain; charset=UTF-8 content received";
-                QByteArray accessToken = this->parsePlainTextReply(replyContent, QByteArray("access_token"));
-                QByteArray expiresIn = this->parsePlainTextReply(replyContent, QByteArray("expires"));
-                QByteArray refreshToken = this->parsePlainTextReply(replyContent, QByteArray("refresh_token"));
+                QByteArray accessToken = parsePlainTextReply(replyContent, QByteArray("access_token"));
+                QByteArray expiresIn = parsePlainTextReply(replyContent, QByteArray("expires"));
+                QByteArray refreshToken = parsePlainTextReply(replyContent, QByteArray("refresh_token"));
 
                 if (accessToken.isEmpty()) {
                     TRACE()<< "Access token is empty";
@@ -737,8 +735,8 @@ namespace OAuth2PluginNS {
         if (reply->hasRawHeader(CONTENT_TYPE)) {
 
             // Checking if supported content type received
-            if ((reply->rawHeader(CONTENT_TYPE) == CONTENT_APP_URLENCODED)
-                || (reply->rawHeader(CONTENT_TYPE) == CONTENT_TEXT_PLAIN)) {
+            if ((reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_URLENCODED))
+                || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN))) {
 
                 if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
                     // Extracting the request token, token secret
