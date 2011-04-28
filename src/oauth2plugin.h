@@ -57,7 +57,7 @@ namespace OAuth2PluginNS {
         void process(const SignOn::SessionData &inData, const QString &mechanism = 0);
         void userActionFinished(const SignOn::UiSessionData &data);
         void refresh(const SignOn::UiSessionData &data);
-        void replyFinished(QNetworkReply*);
+        void replyOAuth2RequestFinished(QNetworkReply *reply);
         void replyOAuth1RequestFinished(QNetworkReply *reply);
         void slotError(QNetworkReply::NetworkError);
         void slotSslErrors(QList<QSslError> errorList);
@@ -71,12 +71,12 @@ namespace OAuth2PluginNS {
         const QByteArray parsePlainTextReply(const QByteArray &reply, const QByteArray &find);
         void handleError(const QByteArray &reply);
         void handleOAuth1Error(const QByteArray &reply);
-        QByteArray constructSignatureBaseString(const QString &aUrl, const QString &callback,
-                                                const OAuth1PluginData &inData, const QString &timestamp,
+        QByteArray constructSignatureBaseString(const QString &aUrl,
+                                                const OAuth1PluginData &inData,
+                                                const QString &timestamp,
                                                 const QString &nonce);
         QString urlEncode(QString strData);
-        QString createOAuth1Header(const QString &aUrl, OAuth1PluginData inData,
-                                  const QString &callback = QString());
+        QString createOAuth1Header(const QString &aUrl, OAuth1PluginData inData);
         QByteArray hashHMACSHA1(const QByteArray &keyForHash ,const QByteArray &secret);
         void handleRequestFinishedError(QNetworkReply *reply, const QByteArray &replyContent);
 
