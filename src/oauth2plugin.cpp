@@ -127,8 +127,7 @@ namespace OAuth2PluginNS {
         QNetworkProxy m_networkProxy;
         QNetworkReply *m_reply;
         QString m_mechanism;
-        OAuth2PluginData m_webserverSession;
-        OAuth2PluginData m_useragentSession;
+        OAuth2PluginData m_oauth2Data;
         OAuth1PluginData m_oauth1Data;
         QByteArray m_oauth1Token;
         QByteArray m_oauth1TokenSecret;
@@ -194,28 +193,21 @@ namespace OAuth2PluginNS {
             d->m_reply->abort();
     }
 
-    void OAuth2Plugin::sendAuthRequest(const OAuth2PluginData &inData, const QString &mechanism)
-    {
-        SignOn::UiSessionData uiSession;
-        QString urlString = getUrlString(inData, mechanism);
-        TRACE() << "Url = " << urlString;
-        uiSession.setOpenUrl(urlString);
-        emit userActionRequired(uiSession);
-        return;
-    }
-
-    QString OAuth2Plugin::getUrlString(OAuth2PluginData inData, QString type)
+    void OAuth2Plugin::sendAuthRequest(const OAuth2PluginData &inData)
     {
         QUrl url(QString("https://%1/%2").arg(inData.Host()).arg(inData.AuthPath()));
         url.addQueryItem(CLIENT_ID, inData.ClientId());
         url.addQueryItem(REDIRECT_URI, inData.RedirectUri());
         url.addQueryItem(QString("display"), QString("touch"));
-        url.addQueryItem(QString("type"), type);
-        if (inData.Scope().count()) {
+        url.addQueryItem(QString("type"), d->m_mechanism);
+        if (!inData.Scope().empty()) {
             // Passing comma de-limited list of scope
             url.addQueryItem(QString("scope"), inData.Scope().join(","));
         }
-        return url.toString();
+        TRACE() << "Url = " << url.toString();
+        SignOn::UiSessionData uiSession;
+        uiSession.setOpenUrl(url.toString());
+        emit userActionRequired(uiSession);
     }
 
     bool OAuth2Plugin::validateInput(const SignOn::SessionData &inData, const QString &mechanism)
@@ -323,20 +315,13 @@ namespace OAuth2PluginNS {
                 return;
             }
         }
-        if (mechanism == WEB_SERVER) {
-            d->m_webserverSession = inData.data<OAuth2PluginData>();
-            d->m_mechanism = WEB_SERVER;
-            sendAuthRequest(d->m_webserverSession, WEB_SERVER);
+        d->m_mechanism = mechanism;
+        if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
+            d->m_oauth2Data = inData.data<OAuth2PluginData>();
+            sendAuthRequest(d->m_oauth2Data);
         }
-        else if (mechanism == USER_AGENT) {
-            d->m_useragentSession = inData.data<OAuth2PluginData>();
-            d->m_mechanism = USER_AGENT;
-            sendAuthRequest(d->m_useragentSession, USER_AGENT);
-        }
-        else if ((mechanism == HMAC_SHA1)
-            ||(mechanism == PLAINTEXT)) {
+        else if (mechanism == HMAC_SHA1 ||mechanism == PLAINTEXT) {
             d->m_oauth1Data = inData.data<OAuth1PluginData>();
-            d->m_mechanism = mechanism;
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_TOKEN;
             sendOAuth1PostRequest(d->m_oauth1Data);
         }
@@ -911,10 +896,10 @@ namespace OAuth2PluginNS {
     {
         QVariantMap authHeaders;
         authHeaders.insert(GRANT_TYPE, AUTHORIZATION_CODE);
-        authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
+        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
+        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
         authHeaders.insert(AUTH_CODE, code);
-        authHeaders.insert(REDIRECT_URI, QUrl(d->m_webserverSession.RedirectUri()).toEncoded());
+        authHeaders.insert(REDIRECT_URI, QUrl(d->m_oauth2Data.RedirectUri()).toEncoded());
         return authHeaders;
     }
 
@@ -922,8 +907,8 @@ namespace OAuth2PluginNS {
     {
         QVariantMap authHeaders;
         authHeaders.insert(GRANT_TYPE, USER_BASIC);
-        authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
+        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
+        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
         authHeaders.insert(USERNAME, username);
         authHeaders.insert(PASSWORD, password);
         return authHeaders;
@@ -933,8 +918,8 @@ namespace OAuth2PluginNS {
     {
         QVariantMap authHeaders;
         authHeaders.insert(GRANT_TYPE, ASSERTION);
-        authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
+        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
+        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
         authHeaders.insert(ASSERTION_TYPE, assertion_type);
         authHeaders.insert(ASSERTION, assertion);
         return authHeaders;
@@ -944,8 +929,8 @@ namespace OAuth2PluginNS {
     {
         QVariantMap authHeaders;
         authHeaders.insert(GRANT_TYPE, REFRESH_TOKEN);
-        authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
+        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
+        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
         authHeaders.insert(REFRESH_TOKEN, refresh_token);
         return authHeaders;
     }
@@ -977,8 +962,8 @@ namespace OAuth2PluginNS {
             d->m_manager->setProxy(d->m_networkProxy);
         }
 
-        QUrl url(QString("https://%1/%2").arg(d->m_webserverSession.Host())
-                 .arg(d->m_webserverSession.TokenPath()));
+        QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host())
+                 .arg(d->m_oauth2Data.TokenPath()));
         QNetworkRequest request(url);
         request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
         connect(d->m_manager, SIGNAL(finished(QNetworkReply*)),
