@@ -37,7 +37,7 @@
 class OAuth2PluginTest;
 namespace OAuth2PluginNS {
 
-    /*!
+/*!
  * @class oauthPlugin
  * OAuth authentication plugin.
  */
@@ -65,12 +65,7 @@ namespace OAuth2PluginNS {
     private:
         void sendAuthRequest();
         bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
-        QByteArray getQueryString(const QVariantMap& parameters);
-        const QVariantMap getRefreshTokenRequestParams(QString refresh_token);
-        const QVariantMap getAssertionRequestParams(QString assertion_type, QString assertion);
-        const QVariantMap getUserBasicRequestParams(QString username, QString password);
-        const QVariantMap getAuthCodeRequestParams(QString code);
-        void sendPostRequest(const QByteArray &queryString);
+        void sendOAuth2PostRequest(const QByteArray &postData);
         void sendOAuth1PostRequest();
         const QByteArray parseReply(const QByteArray &reply, const QByteArray &find);
         const QByteArray parsePlainTextReply(const QByteArray &reply, const QByteArray &find);

@@ -414,7 +414,7 @@ namespace OAuth2PluginNS {
         return signatureBase;
     }
 
-    // Function  to create the Authorization header
+    // Method  to create the Authorization header
     QString OAuth2Plugin::createOAuthHeader(const QString &aUrl, OAuth1PluginData inData,
                                             const QString &callback)
     {
@@ -473,7 +473,7 @@ namespace OAuth2PluginNS {
                               + urlEncode(signature.toBase64()) + QUOTE_WITH_DELIMIT);
         }
         else {
-            Q_ASSERT_X(false, "createOAuthHeader", "Unsupported mechanism");
+            Q_ASSERT_X(false, __FUNCTION__, "Unsupported mechanism");
         }
 
         authHeader.append(OAUTH_SIGNATURE_METHOD + EQUAL_WITH_QUOTE
@@ -516,7 +516,6 @@ namespace OAuth2PluginNS {
         if (d->m_mechanism == USER_AGENT) {
             // Response should contain the access token
             OAuth2PluginTokenData respData;
-            QUrl url = QUrl(data.UrlResponse());
             QString fragment;
             if (url.hasFragment()) {
                 fragment = url.fragment ();
@@ -561,19 +560,43 @@ namespace OAuth2PluginNS {
             // 2. Resource owner credentials (username, password)
             // 3. Assertion (assertion_type, assertion)
             // 4. Refresh Token (refresh_token)
+            QUrl newUrl;
             if (url.hasQueryItem(AUTH_CODE)) {
-                sendPostRequest(getQueryString(getAuthCodeRequestParams(url.queryItemValue(AUTH_CODE))));
+                QString code = url.queryItemValue(AUTH_CODE);
+                newUrl.addQueryItem(GRANT_TYPE, AUTHORIZATION_CODE);
+                newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+                newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+                newUrl.addQueryItem(AUTH_CODE, code);
+                newUrl.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
+                sendOAuth2PostRequest(newUrl.encodedQuery());
             }
             else if (url.hasQueryItem(USERNAME) && url.hasQueryItem(PASSWORD)) {
-                sendPostRequest(getQueryString(getUserBasicRequestParams(url.queryItemValue(USERNAME),
-                                                                         url.queryItemValue(PASSWORD))));
+                QString username = url.queryItemValue(USERNAME);
+                QString password = url.queryItemValue(PASSWORD);
+                newUrl.addQueryItem(GRANT_TYPE, USER_BASIC);
+                newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+                newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+                newUrl.addQueryItem(USERNAME, username);
+                newUrl.addQueryItem(PASSWORD, password);
+                sendOAuth2PostRequest(newUrl.encodedQuery());
             }
             else if (url.hasQueryItem(ASSERTION_TYPE) && url.hasQueryItem(ASSERTION)) {
-                sendPostRequest(getQueryString(getAssertionRequestParams(url.queryItemValue(ASSERTION_TYPE),
-                                                                         url.queryItemValue(ASSERTION))));
+                QString assertion_type = url.queryItemValue(ASSERTION_TYPE);
+                QString assertion = url.queryItemValue(ASSERTION);
+                newUrl.addQueryItem(GRANT_TYPE, ASSERTION);
+                newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+                newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+                newUrl.addQueryItem(ASSERTION_TYPE, assertion_type);
+                newUrl.addQueryItem(ASSERTION, assertion);
+                sendOAuth2PostRequest(newUrl.encodedQuery());
             }
             else if (url.hasQueryItem(REFRESH_TOKEN)) {
-                sendPostRequest(getQueryString(getRefreshTokenRequestParams(url.queryItemValue(REFRESH_TOKEN))));
+                QString refresh_token = url.queryItemValue(REFRESH_TOKEN);
+                newUrl.addQueryItem(GRANT_TYPE, REFRESH_TOKEN);
+                newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+                newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+                newUrl.addQueryItem(REFRESH_TOKEN, refresh_token);
+                sendOAuth2PostRequest(newUrl.encodedQuery());
             }
             else {
                 emit error(Error(Error::Unknown, QString("Access grant not present")));
@@ -612,7 +635,7 @@ namespace OAuth2PluginNS {
         }
     }
 
-    // Function to handle responses for OAuth 2.0 requests
+    // Method to handle responses for OAuth 2.0 requests
     void OAuth2Plugin::replyFinished(QNetworkReply *reply)
     {
         TRACE()<< "Finished signal received";
@@ -684,7 +707,7 @@ namespace OAuth2PluginNS {
         }
     }
 
-    // Function to handle responses for OAuth 1.0a Request token request
+    // Method to handle responses for OAuth 1.0a Request token request
     void OAuth2Plugin::replyOAuth1RequestFinished(QNetworkReply *reply)
     {
         TRACE()<< "Finished signal received";
@@ -744,7 +767,7 @@ namespace OAuth2PluginNS {
                     }
                 }
                 else {
-                    Q_ASSERT_X(false, "sendOAuth1PostRequest", "Invalid OAuth1 POST request");
+                    Q_ASSERT_X(false, __FUNCTION__, "Invalid OAuth1 POST request");
                 }
             }
             else {
@@ -854,67 +877,7 @@ namespace OAuth2PluginNS {
         emit refreshed(data);
     }
 
-    const QVariantMap OAuth2Plugin::getAuthCodeRequestParams(QString code)
-    {
-        QVariantMap authHeaders;
-        authHeaders.insert(GRANT_TYPE, AUTHORIZATION_CODE);
-        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
-        authHeaders.insert(AUTH_CODE, code);
-        authHeaders.insert(REDIRECT_URI, QUrl(d->m_oauth2Data.RedirectUri()).toEncoded());
-        return authHeaders;
-    }
-
-    const QVariantMap OAuth2Plugin::getUserBasicRequestParams(QString username, QString password)
-    {
-        QVariantMap authHeaders;
-        authHeaders.insert(GRANT_TYPE, USER_BASIC);
-        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
-        authHeaders.insert(USERNAME, username);
-        authHeaders.insert(PASSWORD, password);
-        return authHeaders;
-    }
-
-    const QVariantMap OAuth2Plugin::getAssertionRequestParams(QString assertion_type, QString assertion)
-    {
-        QVariantMap authHeaders;
-        authHeaders.insert(GRANT_TYPE, ASSERTION);
-        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
-        authHeaders.insert(ASSERTION_TYPE, assertion_type);
-        authHeaders.insert(ASSERTION, assertion);
-        return authHeaders;
-    }
-
-    const QVariantMap OAuth2Plugin::getRefreshTokenRequestParams(QString refresh_token)
-    {
-        QVariantMap authHeaders;
-        authHeaders.insert(GRANT_TYPE, REFRESH_TOKEN);
-        authHeaders.insert(CLIENT_ID, d->m_oauth2Data.ClientId());
-        authHeaders.insert(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
-        authHeaders.insert(REFRESH_TOKEN, refresh_token);
-        return authHeaders;
-    }
-
-    QByteArray OAuth2Plugin::getQueryString(const QVariantMap& parameters)
-    {
-        QUrl url;
-        QMapIterator<QString,QVariant> i(parameters);
-        while (i.hasNext()) {
-            i.next();
-            if (i.key() == AUTH_CODE) {
-                url.addEncodedQueryItem(i.key().toAscii(), i.value().toByteArray());
-            }
-            else {
-                url.addQueryItem(i.key(),i.value().toString());
-            }
-        }
-        return url.encodedQuery();
-    }
-
-    // Method to send OAuth 2.0 POST request
-    void OAuth2Plugin::sendPostRequest(const QByteArray &queryString)
+    void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData)
     {
         TRACE();
 
@@ -931,8 +894,8 @@ namespace OAuth2PluginNS {
         connect(d->m_manager, SIGNAL(finished(QNetworkReply*)),
                 this, SLOT(replyFinished(QNetworkReply*)));
 
-        TRACE() << "Query string = " << queryString;
-        d->m_reply = d->m_manager->post(request, queryString);
+        TRACE() << "Query string = " << postData;
+        d->m_reply = d->m_manager->post(request, postData);
 
         connect(d->m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
                 this, SLOT(slotError(QNetworkReply::NetworkError)));
@@ -940,7 +903,6 @@ namespace OAuth2PluginNS {
                 this, SLOT(slotSslErrors(QList<QSslError>)));
     }
 
-    // Function to send OAuth 1.0a POST requests
     void OAuth2Plugin::sendOAuth1PostRequest()
     {
         TRACE();
@@ -968,7 +930,7 @@ namespace OAuth2PluginNS {
                                            d->m_oauth1Data);
         }
         else {
-            Q_ASSERT_X(false, "sendOAuth1PostRequest", "Invalid OAuth1 POST request");
+            Q_ASSERT_X(false, __FUNCTION__, "Invalid OAuth1 POST request");
         }
         request.setRawHeader(QByteArray("Authorization"), authHeader.toAscii());
 
