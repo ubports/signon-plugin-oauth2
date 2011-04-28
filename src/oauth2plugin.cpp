@@ -139,7 +139,7 @@ namespace OAuth2PluginNS {
 
     public:
         //convert network error into auth plugin error code
-        Error getSsoErrorCode(QNetworkReply::NetworkError networkError)
+        Error ssoErrorCode(QNetworkReply::NetworkError networkError)
         {
             //first specific cases
             if (networkError == QNetworkReply::NoError)
@@ -343,8 +343,6 @@ namespace OAuth2PluginNS {
         else {
             emit error(Error(Error::MechanismNotAvailable));
         }
-
-        return;
     }
 
     QString OAuth2Plugin::urlEncode(QString strData)
@@ -619,7 +617,7 @@ namespace OAuth2PluginNS {
     void OAuth2Plugin::handleRequestFinishedError(QNetworkReply *reply, const QByteArray &replyContent)
     {
         TRACE() << QString("http_error received : %1, %2").arg(reply->error()).arg(reply->errorString());
-        Error err = d->getSsoErrorCode(reply->error());
+        Error err = d->ssoErrorCode(reply->error());
         TRACE() << "Error type = " << err.type();
         if (err.type() == Error::Ssl) {
             return; //this is handled with sslError signal
@@ -639,14 +637,14 @@ namespace OAuth2PluginNS {
         TRACE()<< "Finished signal received";
         QByteArray replyContent = reply->readAll();
         TRACE() << replyContent;
-        QVariant statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
-        TRACE() << statusCode;
-        if (reply->error()) {
+        if (reply->error() != QNetworkReply::NoError) {
             handleRequestFinishedError(reply, replyContent);
             return;
         }
 
         // Handle error responses
+        QVariant statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+        TRACE() << statusCode;
         if (statusCode != HTTP_STATUS_OK) {
             handleError(replyContent);
             return;
@@ -716,16 +714,16 @@ namespace OAuth2PluginNS {
     {
         TRACE()<< "Finished signal received";
         QByteArray replyContent = reply->readAll();
-        QVariant statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
         TRACE() << replyContent;
-        TRACE() << statusCode;
-        if (reply->error()) {
+        if (reply->error() != QNetworkReply::NoError) {
             handleRequestFinishedError(reply, replyContent);
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
             return;
         }
 
         // Handle error responses
+        QVariant statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
+        TRACE() << statusCode;
         if (statusCode != HTTP_STATUS_OK) {
             handleError(replyContent);
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
@@ -741,8 +739,8 @@ namespace OAuth2PluginNS {
 
                 if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
                     // Extracting the request token, token secret
-                    d->m_oauth1Token = this->parsePlainTextReply(replyContent, QByteArray("oauth_token"));
-                    d->m_oauth1TokenSecret = this->parsePlainTextReply(replyContent, QByteArray("oauth_token_secret"));
+                    d->m_oauth1Token = parsePlainTextReply(replyContent, QByteArray("oauth_token"));
+                    d->m_oauth1TokenSecret = parsePlainTextReply(replyContent, QByteArray("oauth_token_secret"));
                     if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
                         TRACE() << "OAuth token is empty";
                         emit error(Error(Error::Unknown, QString("Request token missing")));
@@ -759,7 +757,7 @@ namespace OAuth2PluginNS {
                 }
                 else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
                     // Extracting the access token
-                    d->m_oauth1Token = this->parsePlainTextReply(replyContent, QByteArray("oauth_token"));
+                    d->m_oauth1Token = parsePlainTextReply(replyContent, QByteArray("oauth_token"));
                     if (d->m_oauth1Token.isEmpty()) {
                         TRACE()<< "OAuth token is empty";
                         emit error(Error(Error::Unknown, QString("Access token missing")));
@@ -863,7 +861,6 @@ namespace OAuth2PluginNS {
     void OAuth2Plugin::handleError(const QByteArray &reply)
     {
         TRACE();
-        Error err;
         QByteArray errorString = parseReply(reply, QByteArray("\"error\""));
         if (!errorString.isEmpty()) {
             handleOAuth2Error(errorString);
