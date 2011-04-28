@@ -435,7 +435,7 @@ namespace OAuth2PluginNS {
     }
 
     // Function  to create the Authorization header
-    QString OAuth2Plugin::createOAuthHeader(const QString& aUrl, OAuth1PluginData inData,
+    QString OAuth2Plugin::createOAuthHeader(const QString &aUrl, OAuth1PluginData inData,
                                             const QString &callback)
     {
         // Nonce
@@ -448,8 +448,10 @@ namespace OAuth2PluginNS {
         QString oauthTimestamp = QString("%1").arg(time.currentDateTime().toTime_t());
 
         QString authHeader = OAUTH + SPACE;
-        authHeader.append(OAUTH_REALM + EQUAL_WITH_QUOTE
-                          + inData.Realm() + QUOTE_WITH_DELIMIT);
+        if (!inData.Realm().isEmpty()) {
+            authHeader.append(OAUTH_REALM + EQUAL_WITH_QUOTE
+                              + urlEncode(inData.Realm()) + QUOTE_WITH_DELIMIT);
+        }
         if (!callback.isEmpty()) {
             authHeader.append(OAUTH_CALLBACK + EQUAL_WITH_QUOTE
                               + urlEncode(callback) + QUOTE_WITH_DELIMIT);
@@ -612,7 +614,6 @@ namespace OAuth2PluginNS {
                 emit error(Error(Error::Unknown, QString("oauth_verifier missing")));
             }
         }
-        return;
     }
 
     void OAuth2Plugin::handleRequestFinishedError(QNetworkReply *reply, const QByteArray &replyContent)
@@ -791,8 +792,6 @@ namespace OAuth2PluginNS {
             emit error(err);
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
         }
-
-        return;
     }
 
     void OAuth2Plugin::handleOAuth2Error(const QByteArray &errorString)
@@ -884,12 +883,8 @@ namespace OAuth2PluginNS {
             return;
         }
 
-        err.setType(Error::Unknown);
-        err.setMessage(errorString);
         TRACE() << "Error Emitted";
-        emit error(err);
-
-        return;
+        emit error(Error(Error::Unknown, errorString));
     }
 
     void OAuth2Plugin::slotError(QNetworkReply::NetworkError err)
@@ -918,8 +913,6 @@ namespace OAuth2PluginNS {
     const QVariantMap OAuth2Plugin::getAuthCodeRequestParams(QString code)
     {
         QVariantMap authHeaders;
-        QStringList data;
-
         authHeaders.insert(GRANT_TYPE, AUTHORIZATION_CODE);
         authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
         authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
@@ -931,8 +924,6 @@ namespace OAuth2PluginNS {
     const QVariantMap OAuth2Plugin::getUserBasicRequestParams(QString username, QString password)
     {
         QVariantMap authHeaders;
-        QStringList data;
-
         authHeaders.insert(GRANT_TYPE, USER_BASIC);
         authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
         authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
@@ -944,8 +935,6 @@ namespace OAuth2PluginNS {
     const QVariantMap OAuth2Plugin::getAssertionRequestParams(QString assertion_type, QString assertion)
     {
         QVariantMap authHeaders;
-        QStringList data;
-
         authHeaders.insert(GRANT_TYPE, ASSERTION);
         authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
         authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
@@ -957,8 +946,6 @@ namespace OAuth2PluginNS {
     const QVariantMap OAuth2Plugin::getRefreshTokenRequestParams(QString refresh_token)
     {
         QVariantMap authHeaders;
-        QStringList data;
-
         authHeaders.insert(GRANT_TYPE, REFRESH_TOKEN);
         authHeaders.insert(CLIENT_ID, d->m_webserverSession.ClientId());
         authHeaders.insert(CLIENT_SECRET, d->m_webserverSession.ClientSecret());
@@ -968,9 +955,7 @@ namespace OAuth2PluginNS {
 
     QByteArray OAuth2Plugin::getQueryString(const QVariantMap& parameters)
     {
-        QString queryString;
         QUrl url;
-
         QMapIterator<QString,QVariant> i(parameters);
         while (i.hasNext()) {
             i.next();
@@ -984,7 +969,7 @@ namespace OAuth2PluginNS {
         return url.encodedQuery();
     }
 
-    // Function to send OAuth 2.0 POST request
+    // Method to send OAuth 2.0 POST request
     void OAuth2Plugin::sendPostRequest(const QByteArray &queryString)
     {
         TRACE();
@@ -1009,7 +994,6 @@ namespace OAuth2PluginNS {
                 this, SLOT(slotError(QNetworkReply::NetworkError)));
         connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),
                 this, SLOT(slotSslErrors(QList<QSslError>)));
-        return;
     }
 
     // Function to send OAuth 1.0a POST requests
@@ -1024,8 +1008,8 @@ namespace OAuth2PluginNS {
         }
 
         QNetworkRequest request;
-        QString authHeader;
         request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
+        QString authHeader;
         if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
             request.setUrl(d->m_oauth1Data.RequestEndpoint());
             authHeader = createOAuthHeader(inData.RequestEndpoint(),
@@ -1049,7 +1033,6 @@ namespace OAuth2PluginNS {
                 this, SLOT(slotError(QNetworkReply::NetworkError)));
         connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),
                 this, SLOT(slotSslErrors(QList<QSslError>)));
-        return;
     }
 
     const QByteArray OAuth2Plugin::parseReply(const QByteArray &reply,
@@ -1080,6 +1063,3 @@ namespace OAuth2PluginNS {
 
     SIGNON_DECL_AUTH_PLUGIN(OAuth2Plugin)
         } //namespace OAuth2PluginNS
-
-
-
