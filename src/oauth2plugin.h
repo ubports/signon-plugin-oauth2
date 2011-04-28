@@ -63,7 +63,8 @@ namespace OAuth2PluginNS {
         void slotSslErrors(QList<QSslError> errorList);
 
     private:
-        void sendAuthRequest();
+        void sendOAuth2AuthRequest();
+        void sendOAuth1AuthRequest(const QString &captchaUrl = 0);
         bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
         void sendOAuth2PostRequest(const QByteArray &postData);
         void sendOAuth1PostRequest();

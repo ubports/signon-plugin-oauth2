@@ -193,7 +193,7 @@ namespace OAuth2PluginNS {
             d->m_reply->abort();
     }
 
-    void OAuth2Plugin::sendAuthRequest()
+    void OAuth2Plugin::sendOAuth2AuthRequest()
     {
         QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
         url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
@@ -207,6 +207,19 @@ namespace OAuth2PluginNS {
         TRACE() << "Url = " << url.toString();
         SignOn::UiSessionData uiSession;
         uiSession.setOpenUrl(url.toString());
+        emit userActionRequired(uiSession);
+    }
+
+    void OAuth2Plugin::sendOAuth1AuthRequest(const QString &captchaUrl)
+    {
+        QUrl url(d->m_oauth1Data.AuthorizationEndpoint());
+        url.addQueryItem(OAUTH_TOKEN, d->m_oauth1Token);
+        TRACE() << "URL = " << url.toString();
+        SignOn::UiSessionData uiSession;
+        uiSession.setOpenUrl(url.toString());
+        if (!captchaUrl.isEmpty()) {
+            uiSession.setCaptchaUrl(captchaUrl);
+        }
         emit userActionRequired(uiSession);
     }
 
@@ -315,7 +328,7 @@ namespace OAuth2PluginNS {
         }
         if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
             d->m_oauth2Data = inData.data<OAuth2PluginData>();
-            sendAuthRequest();
+            sendOAuth2AuthRequest();
         }
         else if (mechanism == HMAC_SHA1 ||mechanism == PLAINTEXT) {
             d->m_oauth1Data = inData.data<OAuth1PluginData>();
@@ -364,7 +377,7 @@ namespace OAuth2PluginNS {
         // Hash sha1 of ipad and append the data to opad
         opad += QCryptographicHash::hash(ipad, QCryptographicHash::Sha1);
 
-        // Return array contains the result of HMACSha1
+        // Return array contains the result of HMAC-SHA1
         return QCryptographicHash::hash(opad, QCryptographicHash::Sha1);
     }
 
@@ -743,13 +756,7 @@ namespace OAuth2PluginNS {
                         emit error(Error(Error::Unknown, QString("Request token missing")));
                     }
                     else {
-                        SignOn::UiSessionData uiSession;
-                        QUrl url(d->m_oauth1Data.AuthorizationEndpoint());
-                        url.addQueryItem(OAUTH_TOKEN, d->m_oauth1Token);
-                        uiSession.setOpenUrl(url.toString());
-                        TRACE() << "URL = " << url.toString();
-                        emit userActionRequired(uiSession);
-                        return;
+                        sendOAuth1AuthRequest();
                     }
                 }
                 else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
@@ -774,14 +781,13 @@ namespace OAuth2PluginNS {
                 emit error(Error(Error::OperationFailed,
                                  QString("Unsupported content type received")));
             }
-            d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
         }
         // Handling 200 OK response (HTTP_STATUS_OK) WITHOUT content
         else {
             TRACE()<< "Content is not present";
             emit error(Error(Error::OperationFailed, QString("Content missing")));
-            d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
         }
+        d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
     }
 
     void OAuth2Plugin::handleOAuth1Error(const QByteArray &errorString)
