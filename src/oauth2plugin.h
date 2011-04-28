@@ -59,8 +59,8 @@ namespace OAuth2PluginNS {
         void refresh(const SignOn::UiSessionData &data);
         void replyOAuth2RequestFinished(QNetworkReply *reply);
         void replyOAuth1RequestFinished(QNetworkReply *reply);
-        void slotError(QNetworkReply::NetworkError);
-        void slotSslErrors(QList<QSslError> errorList);
+        bool handleNetworkError(QNetworkReply::NetworkError err);
+        void handleSslErrors(QList<QSslError> errorList);
 
     private:
         void sendOAuth2AuthRequest();
@@ -70,8 +70,9 @@ namespace OAuth2PluginNS {
         void sendOAuth1PostRequest();
         const QByteArray parseJSONReply(const QByteArray &reply, const QByteArray &find);
         const QByteArray parseTextReply(const QByteArray &reply, const QByteArray &find);
-        void handleError(const QByteArray &reply);
+        void handleOAuth1ProblemError(const QByteArray &errorString);
         void handleOAuth1Error(const QByteArray &reply);
+        void handleOAuth2Error(const QByteArray &reply);
         QByteArray constructSignatureBaseString(const QString &aUrl,
                                                 const OAuth1PluginData &inData,
                                                 const QString &timestamp,
@@ -79,7 +80,6 @@ namespace OAuth2PluginNS {
         QString urlEncode(QString strData);
         QString createOAuth1Header(const QString &aUrl, OAuth1PluginData inData);
         QByteArray hashHMACSHA1(const QByteArray &keyForHash ,const QByteArray &secret);
-        void handleRequestFinishedError(QNetworkReply *reply, const QByteArray &replyContent);
 
         class Private;
         Private *d; // Owned.
