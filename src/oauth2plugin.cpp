@@ -672,9 +672,9 @@ namespace OAuth2PluginNS {
             // Handling application/json content type
             if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_JSON)) {
                 TRACE()<< "application/json content received";
-                QByteArray accessToken = parseReply(replyContent, QByteArray("\"access_token\""));
-                QByteArray expiresIn = parseReply(replyContent, QByteArray("\"expires_in\""));
-                QByteArray refreshToken = parseReply(replyContent, QByteArray("\"refresh_token\""));
+                QByteArray accessToken = parseJSONReply(replyContent, QByteArray("\"access_token\""));
+                QByteArray expiresIn = parseJSONReply(replyContent, QByteArray("\"expires_in\""));
+                QByteArray refreshToken = parseJSONReply(replyContent, QByteArray("\"refresh_token\""));
 
                 if (accessToken.isEmpty()) {
                     TRACE()<< "Access token is empty";
@@ -691,9 +691,9 @@ namespace OAuth2PluginNS {
             // Added to test with facebook Graph API's (handling text/plain content type)
             else if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN)){
                 TRACE()<< "text/plain; charset=UTF-8 content received";
-                QByteArray accessToken = parsePlainTextReply(replyContent, QByteArray("access_token"));
-                QByteArray expiresIn = parsePlainTextReply(replyContent, QByteArray("expires"));
-                QByteArray refreshToken = parsePlainTextReply(replyContent, QByteArray("refresh_token"));
+                QByteArray accessToken = parseTextReply(replyContent, QByteArray("access_token"));
+                QByteArray expiresIn = parseTextReply(replyContent, QByteArray("expires"));
+                QByteArray refreshToken = parseTextReply(replyContent, QByteArray("refresh_token"));
 
                 if (accessToken.isEmpty()) {
                     TRACE()<< "Access token is empty";
@@ -749,8 +749,8 @@ namespace OAuth2PluginNS {
 
                 if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
                     // Extracting the request token, token secret
-                    d->m_oauth1Token = parsePlainTextReply(replyContent, OAUTH_TOKEN.toAscii());
-                    d->m_oauth1TokenSecret = parsePlainTextReply(replyContent, OAUTH_TOKEN_SECRET.toAscii());
+                    d->m_oauth1Token = parseTextReply(replyContent, OAUTH_TOKEN.toAscii());
+                    d->m_oauth1TokenSecret = parseTextReply(replyContent, OAUTH_TOKEN_SECRET.toAscii());
                     if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
                         TRACE() << "OAuth token is empty";
                         emit error(Error(Error::Unknown, QString("Request token missing")));
@@ -761,7 +761,7 @@ namespace OAuth2PluginNS {
                 }
                 else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
                     // Extracting the access token
-                    d->m_oauth1Token = parsePlainTextReply(replyContent, OAUTH_TOKEN.toAscii());
+                    d->m_oauth1Token = parseTextReply(replyContent, OAUTH_TOKEN.toAscii());
                     if (d->m_oauth1Token.isEmpty()) {
                         TRACE()<< "OAuth token is empty";
                         emit error(Error(Error::Unknown, QString("Access token missing")));
@@ -803,7 +803,7 @@ namespace OAuth2PluginNS {
     void OAuth2Plugin::handleError(const QByteArray &reply)
     {
         TRACE();
-        QByteArray errorString = parseReply(reply, QByteArray("\"error\""));
+        QByteArray errorString = parseJSONReply(reply, QByteArray("\"error\""));
         if (!errorString.isEmpty()) {
             Error::ErrorType type = Error::Unknown;
             if (errorString == QByteArray("incorrect_client_credentials")) {
@@ -842,14 +842,14 @@ namespace OAuth2PluginNS {
         }
 
         // Added to work with facebook Graph API's
-        errorString = parseReply(reply, QByteArray("\"message\""));
+        errorString = parseJSONReply(reply, QByteArray("\"message\""));
         if (!errorString.isEmpty()) {
             TRACE() << "Error Emitted";
             emit error(Error(Error::OperationFailed, errorString));
             return;
         }
 
-        errorString = parsePlainTextReply(reply, OAUTH_PROBLEM.toAscii());
+        errorString = parseTextReply(reply, OAUTH_PROBLEM.toAscii());
         if (!errorString.isEmpty()) {
             handleOAuth1Error(errorString);
             return;
@@ -944,8 +944,9 @@ namespace OAuth2PluginNS {
                 this, SLOT(slotSslErrors(QList<QSslError>)));
     }
 
-    const QByteArray OAuth2Plugin::parseReply(const QByteArray &reply,
-                                              const QByteArray &find)
+    /* This method is supposed to deal with JSON */
+    const QByteArray OAuth2Plugin::parseJSONReply(const QByteArray &reply,
+                                                  const QByteArray &find)
     {
         TRACE();
         QList<QByteArray> list = reply.split('\n');
@@ -957,8 +958,8 @@ namespace OAuth2PluginNS {
         return QByteArray();
     }
 
-    const QByteArray OAuth2Plugin::parsePlainTextReply(const QByteArray &reply,
-                                                       const QByteArray &find)
+    const QByteArray OAuth2Plugin::parseTextReply(const QByteArray &reply,
+                                                  const QByteArray &find)
     {
         TRACE();
         QList<QByteArray> list = reply.split('&');
@@ -971,4 +972,4 @@ namespace OAuth2PluginNS {
     }
 
     SIGNON_DECL_AUTH_PLUGIN(OAuth2Plugin)
-        } //namespace OAuth2PluginNS
+} //namespace OAuth2PluginNS
