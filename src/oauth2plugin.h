@@ -25,11 +25,7 @@
 
 #include <QtCore>
 #include <QSslError>
-#include <QNetworkRequest>
-#include <QNetworkProxy>
 #include <QNetworkReply>
-#include <QNetworkAccessManager>
-#include <QUrl>
 
 #include <SignOn/AuthPluginInterface>
 #include <SignOn/SessionData>
@@ -79,8 +75,6 @@ namespace OAuth2PluginNS {
         const QByteArray parseReply(const QByteArray &reply, const QByteArray &find);
         const QByteArray parsePlainTextReply(const QByteArray &reply, const QByteArray &find);
         void handleError(const QByteArray &reply);
-        void handleOAuth2Error(const QByteArray &reply);
-        void handleOAuth2ErrorMessageContent(const QByteArray &reply);
         void handleOAuth1Error(const QByteArray &reply);
         QByteArray constructSignatureBaseString(const QString &aUrl, const QString &callback,
                                                 const OAuth1PluginData &inData, const QString &timestamp,
@@ -91,7 +85,6 @@ namespace OAuth2PluginNS {
         QByteArray createHMACSha1(const QByteArray &keyForHash ,const QByteArray &secret);
         void handleRequestFinishedError(QNetworkReply *reply, const QByteArray &replyContent);
 
-            private:
         class Private;
         Private *d; // Owned.
     };

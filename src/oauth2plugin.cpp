@@ -23,7 +23,6 @@
 #include <QUrl>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
-#include <QNetworkReply>
 #include <QNetworkProxy>
 #include <QDateTime>
 #include <QCryptographicHash>
@@ -88,6 +87,7 @@ namespace OAuth2PluginNS {
     const QString OAUTH_VERSION = QString("oauth_version");
     const QString OAUTH_VERSION_1 = QString("1.0");
     const QString OAUTH_TOKEN = QString("oauth_token");
+    const QString OAUTH_TOKEN_SECRET = QString("oauth_token_secret");
     const QString OAUTH_VERIFIER = QString("oauth_verifier");
     const QString OAUTH_PROBLEM = QString("oauth_problem");
     const QString OAUTH_USER_REFUSED = QString("user_refused");
@@ -424,8 +424,7 @@ namespace OAuth2PluginNS {
         QString oauthNonce = QString("%1%2").arg(nonce1).arg(nonce2);
 
         // Timestamp
-        QDateTime time;
-        QString oauthTimestamp = QString("%1").arg(time.currentDateTime().toTime_t());
+        QString oauthTimestamp = QString("%1").arg(QDateTime::currentDateTime().toTime_t());
 
         QString authHeader = OAUTH + SPACE;
         if (!inData.Realm().isEmpty()) {
@@ -514,7 +513,7 @@ namespace OAuth2PluginNS {
             return;
         }
 
-        if (d->m_mechanism==USER_AGENT) {
+        if (d->m_mechanism == USER_AGENT) {
             // Response should contain the access token
             OAuth2PluginTokenData respData;
             QUrl url = QUrl(data.UrlResponse());
@@ -556,7 +555,7 @@ namespace OAuth2PluginNS {
             else {
                 emit error(Error(Error::Unknown, QString("Access token not present")));
             }
-        } else if (d->m_mechanism==WEB_SERVER) {
+        } else if (d->m_mechanism == WEB_SERVER) {
             // Access grant can be one of the floolwing types
             // 1. Authorization code (code, redirect_uri)
             // 2. Resource owner credentials (username, password)
@@ -588,7 +587,7 @@ namespace OAuth2PluginNS {
                 sendOAuth1PostRequest();
             }
             else if (url.hasQueryItem(OAUTH_PROBLEM)) {
-                handleOAuth1Error(QVariant(url.queryItemValue(OAUTH_PROBLEM)).toByteArray());
+                handleOAuth1Error(url.queryItemValue(OAUTH_PROBLEM).toAscii());
             }
             else {
                 emit error(Error(Error::Unknown, QString("oauth_verifier missing")));
@@ -675,19 +674,13 @@ namespace OAuth2PluginNS {
             }
             else {
                 TRACE()<< "Unsupported content type received: " << reply->rawHeader(CONTENT_TYPE);
-                Error err;
-                err.setMessage(QString("Unsupported content type received"));
-                err.setType(Error::OperationFailed);
-                emit error(err);
+                emit error(Error(Error::OperationFailed, QString("Unsupported content type received")));
             }
         }
         // Handling 200 OK response (HTTP_STATUS_OK) WITHOUT content
         else {
             TRACE()<< "Content is not present";
-            Error err;
-            err.setMessage(QString("Content missing"));
-            err.setType(Error::OperationFailed);
-            emit error(err);
+            emit error(Error(Error::OperationFailed, QString("Content missing")));
         }
     }
 
@@ -721,8 +714,8 @@ namespace OAuth2PluginNS {
 
                 if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
                     // Extracting the request token, token secret
-                    d->m_oauth1Token = parsePlainTextReply(replyContent, QByteArray("oauth_token"));
-                    d->m_oauth1TokenSecret = parsePlainTextReply(replyContent, QByteArray("oauth_token_secret"));
+                    d->m_oauth1Token = parsePlainTextReply(replyContent, OAUTH_TOKEN.toAscii());
+                    d->m_oauth1TokenSecret = parsePlainTextReply(replyContent, OAUTH_TOKEN_SECRET.toAscii());
                     if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
                         TRACE() << "OAuth token is empty";
                         emit error(Error(Error::Unknown, QString("Request token missing")));
@@ -739,7 +732,7 @@ namespace OAuth2PluginNS {
                 }
                 else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
                     // Extracting the access token
-                    d->m_oauth1Token = parsePlainTextReply(replyContent, QByteArray("oauth_token"));
+                    d->m_oauth1Token = parsePlainTextReply(replyContent, OAUTH_TOKEN.toAscii());
                     if (d->m_oauth1Token.isEmpty()) {
                         TRACE()<< "OAuth token is empty";
                         emit error(Error(Error::Unknown, QString("Access token missing")));
@@ -756,88 +749,27 @@ namespace OAuth2PluginNS {
             }
             else {
                 TRACE()<< "Unsupported content type received: " << reply->rawHeader(CONTENT_TYPE);
-                Error err;
-                err.setMessage(QString("Unsupported content type received"));
-                err.setType(Error::OperationFailed);
-                emit error(err);
+                emit error(Error(Error::OperationFailed,
+                                 QString("Unsupported content type received")));
             }
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
         }
         // Handling 200 OK response (HTTP_STATUS_OK) WITHOUT content
         else {
             TRACE()<< "Content is not present";
-            Error err;
-            err.setMessage(QString("Content missing"));
-            err.setType(Error::OperationFailed);
-            emit error(err);
+            emit error(Error(Error::OperationFailed, QString("Content missing")));
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
         }
     }
 
-    void OAuth2Plugin::handleOAuth2Error(const QByteArray &errorString)
-    {
-        Error err;
-        err.setMessage(errorString);
-        if (errorString == QByteArray("incorrect_client_credentials")) {
-            err.setType(Error::InvalidCredentials);
-        }
-        else if (errorString == QByteArray("redirect_uri_mismatch")) {
-            err.setType(Error::InvalidCredentials);
-        }
-        else if (errorString == QByteArray("bad_authorization_code")) {
-            err.setType(Error::InvalidCredentials);
-        }
-        else if (errorString == QByteArray("invalid_client_credentials")) {
-            err.setType(Error::InvalidCredentials);
-        }
-        else if (errorString == QByteArray("unauthorized_client")) {
-            err.setType(Error::NotAuthorized);
-        }
-        else if (errorString == QByteArray("invalid_assertion")) {
-            err.setType(Error::InvalidCredentials);
-        }
-        else if (errorString == QByteArray("unknown_format")) {
-            err.setType(Error::InvalidQuery);
-        }
-        else if (errorString == QByteArray("authorization_expired")) {
-            err.setType(Error::InvalidCredentials);
-        }
-        else if (errorString == QByteArray("multiple_credentials")) {
-            err.setType(Error::InvalidQuery);
-        }
-        else if (errorString == QByteArray("invalid_user_credentials")) {
-            err.setType(Error::InvalidCredentials);
-        }
-        else {
-            err.setType(Error::Unknown);
-        }
-        TRACE() << "Error Emitted";
-        emit error(err);
-    }
-
-    void OAuth2Plugin::handleOAuth2ErrorMessageContent(const QByteArray &errorString)
-    {
-        Error err;
-        TRACE() << "Error Emitted";
-        err.setMessage(errorString);
-        err.setType(Error::OperationFailed);
-        TRACE() << "Error Emitted";
-        emit error(err);
-    }
-
     void OAuth2Plugin::handleOAuth1Error(const QByteArray &errorString)
     {
-        Error err;
-        err.setMessage(errorString);
-        if ((errorString == OAUTH_USER_REFUSED)
-            || (errorString == OAUTH_PERMISSION_DENIED)) {
-            err.setType(Error::PermissionDenied);
-        }
-        else {
-            err.setType(Error::Unknown);
+        Error::ErrorType type = Error::Unknown;
+        if (errorString == OAUTH_USER_REFUSED || errorString == OAUTH_PERMISSION_DENIED) {
+            type = Error::PermissionDenied;
         }
         TRACE() << "Error Emitted";
-        emit error(err);
+        emit error(Error(type, errorString));
     }
 
     void OAuth2Plugin::handleError(const QByteArray &reply)
@@ -845,18 +777,51 @@ namespace OAuth2PluginNS {
         TRACE();
         QByteArray errorString = parseReply(reply, QByteArray("\"error\""));
         if (!errorString.isEmpty()) {
-            handleOAuth2Error(errorString);
+            Error::ErrorType type = Error::Unknown;
+            if (errorString == QByteArray("incorrect_client_credentials")) {
+                type = Error::InvalidCredentials;
+            }
+            else if (errorString == QByteArray("redirect_uri_mismatch")) {
+                type = Error::InvalidCredentials;
+            }
+            else if (errorString == QByteArray("bad_authorization_code")) {
+                type = Error::InvalidCredentials;
+            }
+            else if (errorString == QByteArray("invalid_client_credentials")) {
+                type = Error::InvalidCredentials;
+            }
+            else if (errorString == QByteArray("unauthorized_client")) {
+                type = Error::NotAuthorized;
+            }
+            else if (errorString == QByteArray("invalid_assertion")) {
+                type = Error::InvalidCredentials;
+            }
+            else if (errorString == QByteArray("unknown_format")) {
+                type = Error::InvalidQuery;
+            }
+            else if (errorString == QByteArray("authorization_expired")) {
+                type = Error::InvalidCredentials;
+            }
+            else if (errorString == QByteArray("multiple_credentials")) {
+                type = Error::InvalidQuery;
+            }
+            else if (errorString == QByteArray("invalid_user_credentials")) {
+                type = Error::InvalidCredentials;
+            }
+            TRACE() << "Error Emitted";
+            emit error(Error(type, errorString));
             return;
         }
 
         // Added to work with facebook Graph API's
         errorString = parseReply(reply, QByteArray("\"message\""));
         if (!errorString.isEmpty()) {
-            handleOAuth2ErrorMessageContent(errorString);
+            TRACE() << "Error Emitted";
+            emit error(Error(Error::OperationFailed, errorString));
             return;
         }
 
-        errorString = parsePlainTextReply(reply, QVariant(OAUTH_PROBLEM).toByteArray());
+        errorString = parsePlainTextReply(reply, OAUTH_PROBLEM.toAscii());
         if (!errorString.isEmpty()) {
             handleOAuth1Error(errorString);
             return;
@@ -939,7 +904,7 @@ namespace OAuth2PluginNS {
         while (i.hasNext()) {
             i.next();
             if (i.key() == AUTH_CODE) {
-                url.addEncodedQueryItem(QVariant(i.key()).toByteArray(), i.value().toByteArray());
+                url.addEncodedQueryItem(i.key().toAscii(), i.value().toByteArray());
             }
             else {
                 url.addQueryItem(i.key(),i.value().toString());
