@@ -67,7 +67,7 @@ namespace OAuth2PluginNS {
         void slotSslErrors(QList<QSslError> errorList);
 
     private:
-        void sendAuthRequest(const OAuth2PluginData &inData);
+        void sendAuthRequest();
         bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
         QByteArray getQueryString(const QVariantMap& parameters);
         const QVariantMap getRefreshTokenRequestParams(QString refresh_token);
@@ -75,7 +75,7 @@ namespace OAuth2PluginNS {
         const QVariantMap getUserBasicRequestParams(QString username, QString password);
         const QVariantMap getAuthCodeRequestParams(QString code);
         void sendPostRequest(const QByteArray &queryString);
-        void sendOAuth1PostRequest(const OAuth1PluginData &inData);
+        void sendOAuth1PostRequest();
         const QByteArray parseReply(const QByteArray &reply, const QByteArray &find);
         const QByteArray parsePlainTextReply(const QByteArray &reply, const QByteArray &find);
         void handleError(const QByteArray &reply);

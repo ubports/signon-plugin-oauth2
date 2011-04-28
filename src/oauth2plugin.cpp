@@ -193,16 +193,16 @@ namespace OAuth2PluginNS {
             d->m_reply->abort();
     }
 
-    void OAuth2Plugin::sendAuthRequest(const OAuth2PluginData &inData)
+    void OAuth2Plugin::sendAuthRequest()
     {
-        QUrl url(QString("https://%1/%2").arg(inData.Host()).arg(inData.AuthPath()));
-        url.addQueryItem(CLIENT_ID, inData.ClientId());
-        url.addQueryItem(REDIRECT_URI, inData.RedirectUri());
+        QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
+        url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+        url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
         url.addQueryItem(QString("display"), QString("touch"));
         url.addQueryItem(QString("type"), d->m_mechanism);
-        if (!inData.Scope().empty()) {
+        if (!d->m_oauth2Data.Scope().empty()) {
             // Passing comma de-limited list of scope
-            url.addQueryItem(QString("scope"), inData.Scope().join(","));
+            url.addQueryItem(QString("scope"), d->m_oauth2Data.Scope().join(","));
         }
         TRACE() << "Url = " << url.toString();
         SignOn::UiSessionData uiSession;
@@ -273,10 +273,6 @@ namespace OAuth2PluginNS {
         }
 
         d->m_mechanism = mechanism;
-        //get stored data
-        OAuth2TokenData tokens = inData.data<OAuth2TokenData>();
-        d->m_tokens = tokens.Tokens();
-
         if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
             OAuth2PluginData data = inData.data<OAuth2PluginData>();
             d->m_key = data.ClientId();
@@ -284,15 +280,17 @@ namespace OAuth2PluginNS {
             OAuth1PluginData data = inData.data<OAuth1PluginData>();
             d->m_key = data.ConsumerKey();
         }
-
+        //get stored data
+        OAuth2TokenData tokens = inData.data<OAuth2TokenData>();
+        d->m_tokens = tokens.Tokens();
         if (inData.UiPolicy() == RequestPasswordPolicy) {
             //remove old token for given Key
-            TRACE() << d->m_tokens ;
+            TRACE() << d->m_tokens;
             d->m_tokens.remove(d->m_key);
             OAuth2TokenData tokens;
             tokens.setTokens(d->m_tokens);
             emit store(tokens);
-            TRACE() << d->m_tokens ;
+            TRACE() << d->m_tokens;
         }
 
         QVariant tokenVar = d->m_tokens.value(d->m_key);
@@ -301,7 +299,7 @@ namespace OAuth2PluginNS {
             token = tokenVar.value<QVariantMap>();
         //return stored session if it is valid
         if (token.value("Expiry").toUInt() > QDateTime::currentDateTime().toTime_t()) {
-            if (d->m_mechanism == WEB_SERVER || mechanism == USER_AGENT) {
+            if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
                 OAuth2PluginTokenData response;
                 response.setAccessToken(token.value("Token").toByteArray());
                 response.setRefreshToken(token.value("Token2").toString());
@@ -315,15 +313,14 @@ namespace OAuth2PluginNS {
                 return;
             }
         }
-        d->m_mechanism = mechanism;
         if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
             d->m_oauth2Data = inData.data<OAuth2PluginData>();
-            sendAuthRequest(d->m_oauth2Data);
+            sendAuthRequest();
         }
         else if (mechanism == HMAC_SHA1 ||mechanism == PLAINTEXT) {
             d->m_oauth1Data = inData.data<OAuth1PluginData>();
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_TOKEN;
-            sendOAuth1PostRequest(d->m_oauth1Data);
+            sendOAuth1PostRequest();
         }
         else {
             emit error(Error(Error::MechanismNotAvailable));
@@ -586,9 +583,9 @@ namespace OAuth2PluginNS {
         else { // For all OAuth 1 mechanisms
             if (url.hasQueryItem(OAUTH_VERIFIER)) {
                 d->m_oauth1TokenVerifier = url.queryItemValue(OAUTH_VERIFIER);
-                d->m_oauth1Data.Callback() = QString();
+                d->m_oauth1Data.setCallback(QString());
                 d->m_oauth1RequestType = OAUTH1_POST_ACCESS_TOKEN;
-                sendOAuth1PostRequest(d->m_oauth1Data);
+                sendOAuth1PostRequest();
             }
             else if (url.hasQueryItem(OAUTH_PROBLEM)) {
                 handleOAuth1Error(QVariant(url.queryItemValue(OAUTH_PROBLEM)).toByteArray());
@@ -979,7 +976,7 @@ namespace OAuth2PluginNS {
     }
 
     // Function to send OAuth 1.0a POST requests
-    void OAuth2Plugin::sendOAuth1PostRequest(const OAuth1PluginData &inData)
+    void OAuth2Plugin::sendOAuth1PostRequest()
     {
         TRACE();
 
@@ -994,15 +991,16 @@ namespace OAuth2PluginNS {
         QString authHeader;
         if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
             request.setUrl(d->m_oauth1Data.RequestEndpoint());
-            authHeader = createOAuthHeader(inData.RequestEndpoint(),
-                                           inData,
-                                           inData.Callback());
+            authHeader = createOAuthHeader(d->m_oauth1Data.RequestEndpoint(),
+                                           d->m_oauth1Data,
+                                           d->m_oauth1Data.Callback());
             connect(d->m_manager, SIGNAL(finished(QNetworkReply*)),
                     this, SLOT(replyOAuth1RequestFinished(QNetworkReply*)));
         }
         else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
             request.setUrl(d->m_oauth1Data.TokenEndpoint());
-            authHeader = createOAuthHeader(inData.TokenEndpoint(), inData);
+            authHeader = createOAuthHeader(d->m_oauth1Data.TokenEndpoint(),
+                                           d->m_oauth1Data);
         }
         else {
             Q_ASSERT_X(false, "sendOAuth1PostRequest", "Invalid OAuth1 POST request");
