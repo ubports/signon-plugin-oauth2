@@ -333,7 +333,8 @@ namespace OAuth2PluginNS {
     }
 
     // Create a HMAC-SHA1 signature
-    QByteArray OAuth2Plugin::createHMACSha1(const QByteArray &baseSignatureString , const QByteArray &secret)
+    QByteArray OAuth2Plugin::hashHMACSHA1(const QByteArray &baseSignatureString,
+                                          const QByteArray &secret)
     {
         // The algorithm is defined in RFC 2104
         int blockSize = 64;
@@ -367,9 +368,9 @@ namespace OAuth2PluginNS {
         return QCryptographicHash::hash(opad, QCryptographicHash::Sha1);
     }
 
-    QByteArray OAuth2Plugin::constructSignatureBaseString(const QString &aUrl, const QString &callback,
-                                                          const OAuth1PluginData &inData, const QString &timestamp,
-                                                          const QString &nonce)
+    QByteArray OAuth2Plugin::constructSignatureBaseString(const QString &aUrl,
+        const QString &callback, const OAuth1PluginData &inData,
+        const QString &timestamp, const QString &nonce)
     {
         QMap <QString, QString> oAuthHeaderList;
         QUrl fullUrl(aUrl);
@@ -415,8 +416,8 @@ namespace OAuth2PluginNS {
     }
 
     // Method  to create the Authorization header
-    QString OAuth2Plugin::createOAuthHeader(const QString &aUrl, OAuth1PluginData inData,
-                                            const QString &callback)
+    QString OAuth2Plugin::createOAuth1Header(const QString &aUrl, OAuth1PluginData inData,
+                                             const QString &callback)
     {
         // Nonce
         unsigned long nonce1 = (unsigned long) random();
@@ -447,31 +448,30 @@ namespace OAuth2PluginNS {
         }
 
         // Creating the signature
-        // TODO: RSA-SHA1 signature method should be implemented
         // PLAINTEXT signature method
         if (d->m_mechanism == PLAINTEXT) {
             QByteArray signature;
-            signature.append(urlEncode(inData.ConsumerSecret()));
-            signature.append(AMPERSAND);
-            signature.append(urlEncode(d->m_oauth1TokenSecret));
+            signature.append(urlEncode(inData.ConsumerSecret() + AMPERSAND
+                             + urlEncode(d->m_oauth1TokenSecret));
             TRACE() << "Signature = " << signature;
             authHeader.append(OAUTH_SIGNATURE + EQUAL_WITH_QUOTE
                               + urlEncode(signature) + QUOTE_WITH_DELIMIT);
         }
-        else if (d->m_mechanism == HMAC_SHA1) { // HMAC-SHA1 signature method
+        // HMAC-SHA1 signature method
+        else if (d->m_mechanism == HMAC_SHA1) {
             QByteArray signatureBase = constructSignatureBaseString(aUrl, callback, inData,
                                                                     oauthTimestamp, oauthNonce);
             TRACE() << "Base String = " << signatureBase;
-            QByteArray signature;
             QByteArray secretKey;
             secretKey.append(urlEncode(inData.ConsumerSecret()));
             secretKey.append(AMPERSAND);
             secretKey.append(urlEncode(d->m_oauth1TokenSecret));
-            signature = createHMACSha1(secretKey, signatureBase);
+            QByteArray signature = hashHMACSHA1(secretKey, signatureBase);
             TRACE() << "Signature = " << signature;
             authHeader.append(OAUTH_SIGNATURE + EQUAL_WITH_QUOTE
                               + urlEncode(signature.toBase64()) + QUOTE_WITH_DELIMIT);
         }
+        // TODO: RSA-SHA1 signature method should be implemented
         else {
             Q_ASSERT_X(false, __FUNCTION__, "Unsupported mechanism");
         }
@@ -918,7 +918,7 @@ namespace OAuth2PluginNS {
         QString authHeader;
         if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
             request.setUrl(d->m_oauth1Data.RequestEndpoint());
-            authHeader = createOAuthHeader(d->m_oauth1Data.RequestEndpoint(),
+            authHeader = createOAuth1Header(d->m_oauth1Data.RequestEndpoint(),
                                            d->m_oauth1Data,
                                            d->m_oauth1Data.Callback());
             connect(d->m_manager, SIGNAL(finished(QNetworkReply*)),
@@ -926,7 +926,7 @@ namespace OAuth2PluginNS {
         }
         else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
             request.setUrl(d->m_oauth1Data.TokenEndpoint());
-            authHeader = createOAuthHeader(d->m_oauth1Data.TokenEndpoint(),
+            authHeader = createOAuth1Header(d->m_oauth1Data.TokenEndpoint(),
                                            d->m_oauth1Data);
         }
         else {

@@ -75,9 +75,9 @@ namespace OAuth2PluginNS {
                                                 const OAuth1PluginData &inData, const QString &timestamp,
                                                 const QString &nonce);
         QString urlEncode(QString strData);
-        QString createOAuthHeader(const QString& aUrl, OAuth1PluginData inData,
+        QString createOAuth1Header(const QString &aUrl, OAuth1PluginData inData,
                                   const QString &callback = QString());
-        QByteArray createHMACSha1(const QByteArray &keyForHash ,const QByteArray &secret);
+        QByteArray hashHMACSHA1(const QByteArray &keyForHash ,const QByteArray &secret);
         void handleRequestFinishedError(QNetworkReply *reply, const QByteArray &replyContent);
 
         class Private;
