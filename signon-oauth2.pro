@@ -3,7 +3,7 @@ include( common-project-config.pri )
 
 TEMPLATE  = subdirs
 CONFIG   += ordered
-SUBDIRS   = src tests
+SUBDIRS   = src tests example
 
 include( common-installs-config.pri )
 
