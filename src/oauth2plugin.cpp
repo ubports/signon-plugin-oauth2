@@ -188,6 +188,8 @@ namespace OAuth2PluginNS {
         TRACE() << "Url = " << url.toString();
         SignOn::UiSessionData uiSession;
         uiSession.setOpenUrl(url.toString());
+        if (!d->m_oauth2Data.RedirectUri().isEmpty())
+            uiSession.setFinalUrl(d->m_oauth2Data.RedirectUri());
         emit userActionRequired(uiSession);
     }
 
