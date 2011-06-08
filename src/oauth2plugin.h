@@ -68,8 +68,8 @@ namespace OAuth2PluginNS {
         bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
         void sendOAuth2PostRequest(const QByteArray &postData);
         void sendOAuth1PostRequest();
-        const QByteArray parseJSONReply(const QByteArray &reply, const QByteArray &find);
-        const QByteArray parseTextReply(const QByteArray &reply, const QByteArray &find);
+        const QVariantMap parseJSONReply(const QByteArray &reply);
+        const QMap<QString, QString> parseTextReply(const QByteArray &reply);
         void handleOAuth1ProblemError(const QByteArray &errorString);
         void handleOAuth1Error(const QByteArray &reply);
         void handleOAuth2Error(const QByteArray &reply);

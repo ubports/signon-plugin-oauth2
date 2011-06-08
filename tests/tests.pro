@@ -14,7 +14,8 @@ HEADERS += oauth2plugintest.h \
 INCLUDEPATH += . \
     $${TOP_SRC_DIR}/src \
     /usr/include/signon-qt
-PKGCONFIG += libsignon-qt
+PKGCONFIG += libsignon-qt \
+    QJson
 QMAKE_CXXFLAGS += -fno-exceptions \
     -fno-rtti
 target.path = /usr/bin
