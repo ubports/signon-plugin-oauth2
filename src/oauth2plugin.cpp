@@ -74,9 +74,8 @@ namespace OAuth2PluginNS {
 
     const QString EQUAL = QString("=");
     const QString AMPERSAND = QString("&");
-    const QString EQUAL_WITH_QUOTE = QString("=\"");
-    const QString QUOTE = QString("\"");
-    const QString QUOTE_WITH_DELIMIT = QString("\",");
+    const QString EQUAL_WITH_QUOTES = QString("%1=\"%2\"");
+    const QString DELIMITER = QString(", ");
     const QString SPACE = QString(" ");
     const QString OAUTH = QString("OAuth");
     const QString OAUTH_REALM = QString("realm");
@@ -423,34 +422,41 @@ namespace OAuth2PluginNS {
     QString OAuth2Plugin::createOAuth1Header(const QString &aUrl,
                                              OAuth1PluginData inData)
     {
+        QString authHeader = OAUTH + SPACE;
+        if (!inData.Realm().isEmpty()) {
+            authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_REALM)
+                              .arg(urlEncode(inData.Realm())));
+            authHeader.append(DELIMITER);
+        }
+        if (!inData.Callback().isEmpty()) {
+            authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_CALLBACK)
+                              .arg(urlEncode(inData.Callback())));
+            authHeader.append(DELIMITER);
+        }
+        authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_CONSUMERKEY)
+                          .arg(urlEncode(inData.ConsumerKey())));
+        authHeader.append(DELIMITER);
         // Nonce
         unsigned long nonce1 = (unsigned long) random();
         unsigned long nonce2 = (unsigned long) random();
         QString oauthNonce = QString("%1%2").arg(nonce1).arg(nonce2);
-
+        authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_NONCE)
+                          .arg(urlEncode(oauthNonce)));
+        authHeader.append(DELIMITER);
         // Timestamp
         QString oauthTimestamp = QString("%1").arg(QDateTime::currentDateTime().toTime_t());
-
-        QString authHeader = OAUTH + SPACE;
-        if (!inData.Realm().isEmpty()) {
-            authHeader.append(OAUTH_REALM + EQUAL_WITH_QUOTE
-                              + urlEncode(inData.Realm()) + QUOTE_WITH_DELIMIT);
-        }
-        if (!inData.Callback().isEmpty()) {
-            authHeader.append(OAUTH_CALLBACK + EQUAL_WITH_QUOTE
-                              + urlEncode(inData.Callback()) + QUOTE_WITH_DELIMIT);
-        }
-        authHeader.append(OAUTH_CONSUMERKEY + EQUAL_WITH_QUOTE
-                          + urlEncode(inData.ConsumerKey()) + QUOTE_WITH_DELIMIT);
-        authHeader.append(OAUTH_NONCE + EQUAL_WITH_QUOTE
-                          + urlEncode(oauthNonce) + QUOTE_WITH_DELIMIT );
-        authHeader.append(OAUTH_TIMESTAMP + EQUAL_WITH_QUOTE
-                          + urlEncode(oauthTimestamp) + QUOTE_WITH_DELIMIT);
+        authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_TIMESTAMP)
+                          .arg(urlEncode(oauthTimestamp)));
+        authHeader.append(DELIMITER);
         if (!d->m_oauth1Token.isEmpty()) {
-            authHeader.append(OAUTH_TOKEN + EQUAL_WITH_QUOTE
-                              + urlEncode(d->m_oauth1Token) + QUOTE_WITH_DELIMIT);
+            authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_TOKEN)
+                              .arg(urlEncode(d->m_oauth1Token)));
+            authHeader.append(DELIMITER);
         }
 
+        authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_SIGNATURE_METHOD)
+                          .arg(urlEncode(d->m_mechanism)));
+        authHeader.append(DELIMITER);
         // Creating the signature
         // PLAINTEXT signature method
         QByteArray secretKey;
@@ -458,8 +464,9 @@ namespace OAuth2PluginNS {
                          urlEncode(d->m_oauth1TokenSecret));
         if (d->m_mechanism == PLAINTEXT) {
             TRACE() << "Signature = " << secretKey;
-            authHeader.append(OAUTH_SIGNATURE + EQUAL_WITH_QUOTE
-                              + urlEncode(secretKey) + QUOTE_WITH_DELIMIT);
+            authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_SIGNATURE)
+                              .arg(urlEncode(secretKey)));
+            authHeader.append(DELIMITER);
         }
         // HMAC-SHA1 signature method
         else if (d->m_mechanism == HMAC_SHA1) {
@@ -468,22 +475,22 @@ namespace OAuth2PluginNS {
             TRACE() << "Signature Base = " << signatureBase;
             QByteArray signature = hashHMACSHA1(secretKey, signatureBase);
             TRACE() << "Signature = " << signature;
-            authHeader.append(OAUTH_SIGNATURE + EQUAL_WITH_QUOTE
-                              + urlEncode(signature.toBase64()) + QUOTE_WITH_DELIMIT);
+            authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_SIGNATURE)
+                              .arg(urlEncode(signature.toBase64())));
+            authHeader.append(DELIMITER);
         }
         // TODO: RSA-SHA1 signature method should be implemented
         else {
             Q_ASSERT_X(false, __FUNCTION__, "Unsupported mechanism");
         }
 
-        authHeader.append(OAUTH_SIGNATURE_METHOD + EQUAL_WITH_QUOTE
-                          + urlEncode(d->m_mechanism) + QUOTE_WITH_DELIMIT );
         if (!d->m_oauth1TokenVerifier.isEmpty()) {
-            authHeader.append(OAUTH_VERIFIER + EQUAL_WITH_QUOTE
-                              + urlEncode(d->m_oauth1TokenVerifier) + QUOTE_WITH_DELIMIT);
+            authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_VERIFIER)
+                              .arg(urlEncode(d->m_oauth1TokenVerifier)));
+            authHeader.append(DELIMITER);
         }
-        authHeader.append( OAUTH_VERSION + EQUAL_WITH_QUOTE
-                           + urlEncode(OAUTH_VERSION_1) + QUOTE);
+        authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_VERSION)
+                          .arg(urlEncode(OAUTH_VERSION_1)));
 
         return authHeader;
     }
@@ -616,9 +623,10 @@ namespace OAuth2PluginNS {
     }
 
     // Method to handle responses for OAuth 2.0 requests
-    void OAuth2Plugin::replyOAuth2RequestFinished(QNetworkReply *reply)
+    void OAuth2Plugin::replyOAuth2RequestFinished()
     {
         TRACE()<< "Finished signal received";
+        QNetworkReply *reply = (QNetworkReply*)sender();
         QByteArray replyContent = reply->readAll();
         TRACE() << replyContent;
         if (reply->error() != QNetworkReply::NoError) {
@@ -690,9 +698,10 @@ namespace OAuth2PluginNS {
     }
 
     // Method to handle responses for OAuth 1.0a Request token request
-    void OAuth2Plugin::replyOAuth1RequestFinished(QNetworkReply *reply)
+    void OAuth2Plugin::replyOAuth1RequestFinished()
     {
         TRACE()<< "Finished signal received";
+        QNetworkReply *reply = (QNetworkReply*)sender();
         QByteArray replyContent = reply->readAll();
         TRACE() << replyContent;
         if (reply->error() != QNetworkReply::NoError) {
@@ -906,12 +915,11 @@ namespace OAuth2PluginNS {
                  .arg(d->m_oauth2Data.TokenPath()));
         QNetworkRequest request(url);
         request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
-        connect(d->m_manager, SIGNAL(finished(QNetworkReply*)),
-                this, SLOT(replyOAuth2RequestFinished(QNetworkReply*)));
 
         TRACE() << "Query string = " << postData;
         d->m_reply = d->m_manager->post(request, postData);
-
+        connect(d->m_reply, SIGNAL(finished()),
+                this, SLOT(replyOAuth2RequestFinished()));
         connect(d->m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
                 this, SLOT(handleNetworkError(QNetworkReply::NetworkError)));
         connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),
@@ -934,8 +942,6 @@ namespace OAuth2PluginNS {
             request.setUrl(d->m_oauth1Data.RequestEndpoint());
             authHeader = createOAuth1Header(d->m_oauth1Data.RequestEndpoint(),
                                             d->m_oauth1Data);
-            connect(d->m_manager, SIGNAL(finished(QNetworkReply*)),
-                    this, SLOT(replyOAuth1RequestFinished(QNetworkReply*)));
         }
         else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
             request.setUrl(d->m_oauth1Data.TokenEndpoint());
@@ -948,7 +954,8 @@ namespace OAuth2PluginNS {
         request.setRawHeader(QByteArray("Authorization"), authHeader.toAscii());
 
         d->m_reply = d->m_manager->post(request, QByteArray());
-
+        connect(d->m_reply, SIGNAL(finished()),
+                this, SLOT(replyOAuth1RequestFinished()));
         connect(d->m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
                 this, SLOT(handleNetworkError(QNetworkReply::NetworkError)));
         connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),

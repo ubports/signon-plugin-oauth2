@@ -57,8 +57,8 @@ namespace OAuth2PluginNS {
         void process(const SignOn::SessionData &inData, const QString &mechanism = 0);
         void userActionFinished(const SignOn::UiSessionData &data);
         void refresh(const SignOn::UiSessionData &data);
-        void replyOAuth2RequestFinished(QNetworkReply *reply);
-        void replyOAuth1RequestFinished(QNetworkReply *reply);
+        void replyOAuth2RequestFinished();
+        void replyOAuth1RequestFinished();
         bool handleNetworkError(QNetworkReply::NetworkError err);
         void handleSslErrors(QList<QSslError> errorList);
 
