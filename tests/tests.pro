@@ -16,8 +16,6 @@ INCLUDEPATH += . \
     /usr/include/signon-qt
 PKGCONFIG += libsignon-qt \
     QJson
-QMAKE_CXXFLAGS += -fno-exceptions \
-    -fno-rtti
 target.path = /usr/bin
 testsuite.path = /usr/share/$$TARGET
 testsuite.files = tests.xml
