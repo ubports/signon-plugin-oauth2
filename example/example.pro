@@ -21,3 +21,9 @@ SOURCES += \
 # install
 include( ../common-installs-config.pri )
 
+signon-ui.files = \
+    m.facebook.com.conf \
+    www.facebook.com.conf
+signon-ui.path = /etc/signon-ui/webkit-options.d/
+INSTALLS += signon-ui
+
