@@ -54,6 +54,10 @@ namespace OAuth2PluginNS {
     const QString PLAINTEXT = QString("PLAINTEXT");
     const QString RSA_SHA1 = QString("RSA-SHA1");
 
+    const QString TOKEN = QString("Token");
+    const QString EXPIRY = QString ("Expiry");
+    const QString SECRET = QString ("Secret");
+
     const int HTTP_STATUS_OK = 200;
     const QString AUTH_CODE = QString("code");
     const QString REDIRECT_URI = QString("redirect_uri");
@@ -292,24 +296,30 @@ namespace OAuth2PluginNS {
 
         QVariant tokenVar = d->m_tokens.value(d->m_key);
         QVariantMap token;
-        if (tokenVar.canConvert<QVariantMap>())
+        if (tokenVar.canConvert<QVariantMap>()) {
             token = tokenVar.value<QVariantMap>();
-        //return stored session if it is valid
-        if (token.value("Expiry").toUInt() > QDateTime::currentDateTime().toTime_t()) {
-            if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
-                OAuth2PluginTokenData response;
-                response.setAccessToken(token.value("Token").toByteArray());
-                response.setRefreshToken(token.value("Token2").toString());
-                response.setExpiresIn(token.value("Expiry").toUInt());
-                emit result(response);
-                return;
-            } else {
-                OAuth1PluginTokenData response;
-                response.setAccessToken(token.value("Token").toByteArray());
-                emit result(response);
-                return;
+            //return stored session if it is valid
+            if (token.value("Expiry").toUInt() > QDateTime::currentDateTime().toTime_t()) {
+                if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
+                    OAuth2PluginTokenData response;
+                    response.setAccessToken(token.value(TOKEN).toByteArray());
+                    response.setRefreshToken(token.value(REFRESH_TOKEN).toByteArray());
+                    response.setExpiresIn(token.value(EXPIRY).toUInt());
+                    emit result(response);
+                    return;
+                }
+            }
+            else if (token.contains(TOKEN) && token.contains(SECRET)) {
+                if (mechanism == HMAC_SHA1 || mechanism == RSA_SHA1 || mechanism == PLAINTEXT) {
+                    OAuth1PluginTokenData response;
+                    response.setAccessToken(token.value(TOKEN).toByteArray());
+                    response.setTokenSecret(token.value(SECRET).toByteArray());
+                    emit result(response);
+                    return;
+                }
             }
         }
+
         if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
             d->m_oauth2Data = inData.data<OAuth2PluginData>();
             sendOAuth2AuthRequest();
@@ -544,9 +554,9 @@ namespace OAuth2PluginNS {
                     //store session key for later use
                     OAuth2TokenData tokens;
                     QVariantMap token;
-                    token.insert("Token", respData.AccessToken());
-                    token.insert("Token2", respData.RefreshToken());
-                    token.insert("Expiry", respData.ExpiresIn());
+                    token.insert(TOKEN, respData.AccessToken());
+                    token.insert(REFRESH_TOKEN, respData.RefreshToken());
+                    token.insert(EXPIRY, respData.ExpiresIn());
                     d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
                     tokens.setTokens(d->m_tokens);
                     emit store(tokens);
@@ -747,6 +757,15 @@ namespace OAuth2PluginNS {
                         emit error(Error(Error::Unknown, QString("Access token missing")));
                     }
                     else {
+                        // storing token and token secret for later use
+                        OAuth2TokenData tokens;
+                        QVariantMap token;
+                        token.insert(TOKEN, d->m_oauth1Token);
+                        token.insert(SECRET, d->m_oauth1TokenSecret);
+                        d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
+                        tokens.setTokens(d->m_tokens);
+                        emit store(tokens);
+
                         OAuth1PluginTokenData response;
                         response.setAccessToken(d->m_oauth1Token);
                         emit result(response);

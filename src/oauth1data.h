@@ -65,6 +65,11 @@ namespace OAuth2PluginNS {
          * Access token received from the server
          */
         SIGNON_SESSION_DECLARE_PROPERTY(QString, AccessToken);
+
+        /*!
+         * Token secret received from the server
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(QString, TokenSecret);
     };
 
 } // namespace OAuth2PluginNS
