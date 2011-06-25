@@ -742,8 +742,8 @@ namespace OAuth2PluginNS {
                     d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
                     d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
                     if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
-                        TRACE() << "OAuth token is empty";
-                        emit error(Error(Error::Unknown, QString("Request token missing")));
+                        TRACE() << "OAuth request token  or secret is empty";
+                        emit error(Error(Error::Unknown, QString("Request token or secret missing")));
                     }
                     else {
                         sendOAuth1AuthRequest();
@@ -752,9 +752,10 @@ namespace OAuth2PluginNS {
                 else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
                     // Extracting the access token
                     d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
-                    if (d->m_oauth1Token.isEmpty()) {
-                        TRACE()<< "OAuth token is empty";
-                        emit error(Error(Error::Unknown, QString("Access token missing")));
+                    d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
+                    if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
+                        TRACE()<< "OAuth access token or secret is empty";
+                        emit error(Error(Error::Unknown, QString("Access token or secret missing")));
                     }
                     else {
                         // storing token and token secret for later use
