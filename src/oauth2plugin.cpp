@@ -208,16 +208,16 @@ namespace OAuth2PluginNS {
     {
         QUrl url(d->m_oauth1Data.AuthorizationEndpoint());
         url.addQueryItem(OAUTH_TOKEN, d->m_oauth1Token);
-	if (d->m_oauth1ScreenName.length()) {
-	    // Prefill username for Twitter
-	    url.addQueryItem(SCREEN_NAME, d->m_oauth1ScreenName);
-	    url.addQueryItem(FORCE_LOGIN, d->m_oauth1ScreenName);
-	}
+        if (!d->m_oauth1ScreenName.isEmpty()) {
+            // Prefill username for Twitter
+            url.addQueryItem(SCREEN_NAME, d->m_oauth1ScreenName);
+            url.addQueryItem(FORCE_LOGIN, d->m_oauth1ScreenName);
+        }
         TRACE() << "URL = " << url.toString();
         SignOn::UiSessionData uiSession;
         uiSession.setOpenUrl(url.toString());
-	if (d->m_oauth1Data.Callback() != "oob")
-	    uiSession.setFinalUrl(d->m_oauth1Data.Callback());
+        if (d->m_oauth1Data.Callback() != "oob")
+            uiSession.setFinalUrl(d->m_oauth1Data.Callback());
         if (!captchaUrl.isEmpty()) {
             uiSession.setCaptchaUrl(captchaUrl);
         }
@@ -328,14 +328,14 @@ namespace OAuth2PluginNS {
                     response.setAccessToken(token.value(TOKEN).toByteArray());
                     response.setTokenSecret(token.value(SECRET).toByteArray());
 
-		    if (token.contains(USER_ID)) {
-			//qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
-			response.setUserId(token.value(USER_ID).toByteArray());
-		    }
-		    if (token.contains(SCREEN_NAME)) {
-			//qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
-			response.setScreenName(token.value(SCREEN_NAME).toByteArray());
-		    }
+            if (token.contains(USER_ID)) {
+                //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
+                response.setUserId(token.value(USER_ID).toByteArray());
+            }
+            if (token.contains(SCREEN_NAME)) {
+                //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
+                response.setScreenName(token.value(SCREEN_NAME).toByteArray());
+            }
 
                     emit result(response);
                     return;
@@ -350,10 +350,10 @@ namespace OAuth2PluginNS {
         else if (mechanism == HMAC_SHA1 ||mechanism == PLAINTEXT) {
             d->m_oauth1Data = inData.data<OAuth1PluginData>();
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_TOKEN;
-	    if (!d->m_oauth1Data.UserName().isEmpty()) {
-		d->m_oauth1ScreenName = d->m_oauth1Data.UserName().toAscii(); // UTF8?
-		//qDebug() << "Found username:" << d->m_oauth1ScreenName;
-	    }
+        if (!d->m_oauth1Data.UserName().isEmpty()) {
+            d->m_oauth1ScreenName = d->m_oauth1Data.UserName().toAscii(); // UTF8?
+            //qDebug() << "Found username:" << d->m_oauth1ScreenName;
+        }
             sendOAuth1PostRequest();
         }
         else {
@@ -795,19 +795,19 @@ namespace OAuth2PluginNS {
                         QVariantMap token;
                         token.insert(TOKEN, d->m_oauth1Token);
                         token.insert(SECRET, d->m_oauth1TokenSecret);
-			// Store also (possible) user_id & screen_name
-			if (map.contains(USER_ID)) {
-			    //qDebug() << "Found user_id:" << map[USER_ID].toAscii();
-			    d->m_oauth1UserId = map[USER_ID].toAscii();
-			    response.setUserId(d->m_oauth1UserId);
-			    token.insert(USER_ID, d->m_oauth1UserId);
-			}
-			if (map.contains(SCREEN_NAME)) {
-			    //qDebug() << "Found screen_name:" << map[SCREEN_NAME].toAscii();
-			    d->m_oauth1ScreenName = map[SCREEN_NAME].toAscii();
-			    response.setScreenName(d->m_oauth1ScreenName);
-			    token.insert(SCREEN_NAME, d->m_oauth1ScreenName);
-			}
+                        // Store also (possible) user_id & screen_name
+                        if (map.contains(USER_ID)) {
+                            //qDebug() << "Found user_id:" << map[USER_ID].toAscii();
+                            d->m_oauth1UserId = map[USER_ID].toAscii();
+                            response.setUserId(d->m_oauth1UserId);
+                            token.insert(USER_ID, d->m_oauth1UserId);
+                        }
+                        if (map.contains(SCREEN_NAME)) {
+                            //qDebug() << "Found screen_name:" << map[SCREEN_NAME].toAscii();
+                            d->m_oauth1ScreenName = map[SCREEN_NAME].toAscii();
+                            response.setScreenName(d->m_oauth1ScreenName);
+                            token.insert(SCREEN_NAME, d->m_oauth1ScreenName);
+                        }
 
                         d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
                         tokens.setTokens(d->m_tokens);
