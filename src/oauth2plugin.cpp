@@ -102,6 +102,7 @@ namespace OAuth2PluginNS {
     const QByteArray CONTENT_APP_URLENCODED = QByteArray("application/x-www-form-urlencoded");
     const QByteArray CONTENT_APP_JSON = QByteArray("application/json");
     const QByteArray CONTENT_TEXT_PLAIN = QByteArray("text/plain");
+    const QByteArray CONTENT_TEXT_HTML = QByteArray("text/html");
 
 
     class OAuth2Plugin::Private
@@ -734,6 +735,7 @@ namespace OAuth2PluginNS {
 
             // Checking if supported content type received
             if ((reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_URLENCODED))
+                || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_HTML))
                 || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN))) {
 
                 QMap<QString,QString> map = parseTextReply(replyContent);
