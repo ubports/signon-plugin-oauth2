@@ -56,6 +56,9 @@ namespace OAuth2PluginNS {
          */
         SIGNON_SESSION_DECLARE_PROPERTY(QString, Callback);
         SIGNON_SESSION_DECLARE_PROPERTY(QString, Realm);
+
+	/* Optional username */
+        SIGNON_SESSION_DECLARE_PROPERTY(QString, UserName);
     };
 
     class OAuth1PluginTokenData : public SignOn::SessionData
@@ -70,6 +73,17 @@ namespace OAuth2PluginNS {
          * Token secret received from the server
          */
         SIGNON_SESSION_DECLARE_PROPERTY(QString, TokenSecret);
+
+        /*!
+         * Possible user ID received from the server
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(QString, UserId);
+
+
+        /*!
+         * Possible screen name received from the server
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(QString, ScreenName);
     };
 
 } // namespace OAuth2PluginNS
