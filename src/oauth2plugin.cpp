@@ -190,7 +190,6 @@ namespace OAuth2PluginNS {
         QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
         url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
         url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
-        url.addQueryItem(QString("display"), QString("touch"));
         url.addQueryItem(QString("type"), d->m_mechanism);
         if (!d->m_oauth2Data.Scope().empty()) {
             // Passing comma de-limited list of scope
