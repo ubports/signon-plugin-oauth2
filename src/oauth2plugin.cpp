@@ -57,6 +57,9 @@ namespace OAuth2PluginNS {
     const QString TOKEN = QString("Token");
     const QString EXPIRY = QString ("Expiry");
     const QString SECRET = QString ("Secret");
+    const QString USER_ID = QString("user_id");
+    const QString SCREEN_NAME = QString("screen_name");
+    const QString FORCE_LOGIN = QString("force_login");
 
     const int HTTP_STATUS_OK = 200;
     const QString AUTH_CODE = QString("code");
@@ -102,6 +105,7 @@ namespace OAuth2PluginNS {
     const QByteArray CONTENT_APP_URLENCODED = QByteArray("application/x-www-form-urlencoded");
     const QByteArray CONTENT_APP_JSON = QByteArray("application/json");
     const QByteArray CONTENT_TEXT_PLAIN = QByteArray("text/plain");
+    const QByteArray CONTENT_TEXT_HTML = QByteArray("text/html");
 
 
     class OAuth2Plugin::Private
@@ -136,6 +140,8 @@ namespace OAuth2PluginNS {
         OAuth1PluginData m_oauth1Data;
         QByteArray m_oauth1Token;
         QByteArray m_oauth1TokenSecret;
+        QByteArray m_oauth1UserId;
+        QByteArray m_oauth1ScreenName;
         QString m_oauth1TokenVerifier;
         OAuth1RequestType m_oauth1RequestType;
         QVariantMap m_tokens;
@@ -184,7 +190,6 @@ namespace OAuth2PluginNS {
         QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
         url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
         url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
-        url.addQueryItem(QString("display"), QString("touch"));
         url.addQueryItem(QString("type"), d->m_mechanism);
         if (!d->m_oauth2Data.Scope().empty()) {
             // Passing comma de-limited list of scope
@@ -202,9 +207,16 @@ namespace OAuth2PluginNS {
     {
         QUrl url(d->m_oauth1Data.AuthorizationEndpoint());
         url.addQueryItem(OAUTH_TOKEN, d->m_oauth1Token);
+        if (!d->m_oauth1ScreenName.isEmpty()) {
+            // Prefill username for Twitter
+            url.addQueryItem(SCREEN_NAME, d->m_oauth1ScreenName);
+            url.addQueryItem(FORCE_LOGIN, d->m_oauth1ScreenName);
+        }
         TRACE() << "URL = " << url.toString();
         SignOn::UiSessionData uiSession;
         uiSession.setOpenUrl(url.toString());
+        if (d->m_oauth1Data.Callback() != "oob")
+            uiSession.setFinalUrl(d->m_oauth1Data.Callback());
         if (!captchaUrl.isEmpty()) {
             uiSession.setCaptchaUrl(captchaUrl);
         }
@@ -314,6 +326,16 @@ namespace OAuth2PluginNS {
                     OAuth1PluginTokenData response;
                     response.setAccessToken(token.value(TOKEN).toByteArray());
                     response.setTokenSecret(token.value(SECRET).toByteArray());
+
+            if (token.contains(USER_ID)) {
+                //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
+                response.setUserId(token.value(USER_ID).toByteArray());
+            }
+            if (token.contains(SCREEN_NAME)) {
+                //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
+                response.setScreenName(token.value(SCREEN_NAME).toByteArray());
+            }
+
                     emit result(response);
                     return;
                 }
@@ -327,6 +349,10 @@ namespace OAuth2PluginNS {
         else if (mechanism == HMAC_SHA1 ||mechanism == PLAINTEXT) {
             d->m_oauth1Data = inData.data<OAuth1PluginData>();
             d->m_oauth1RequestType = OAUTH1_POST_REQUEST_TOKEN;
+        if (!d->m_oauth1Data.UserName().isEmpty()) {
+            d->m_oauth1ScreenName = d->m_oauth1Data.UserName().toAscii(); // UTF8?
+            //qDebug() << "Found username:" << d->m_oauth1ScreenName;
+        }
             sendOAuth1PostRequest();
         }
         else {
@@ -734,6 +760,7 @@ namespace OAuth2PluginNS {
 
             // Checking if supported content type received
             if ((reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_URLENCODED))
+                || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_HTML))
                 || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN))) {
 
                 QMap<QString,QString> map = parseTextReply(replyContent);
@@ -758,17 +785,33 @@ namespace OAuth2PluginNS {
                         emit error(Error(Error::Unknown, QString("Access token or secret missing")));
                     }
                     else {
+                        OAuth1PluginTokenData response;
+                        response.setAccessToken(d->m_oauth1Token);
+                        response.setTokenSecret(d->m_oauth1TokenSecret);
+
                         // storing token and token secret for later use
                         OAuth2TokenData tokens;
                         QVariantMap token;
                         token.insert(TOKEN, d->m_oauth1Token);
                         token.insert(SECRET, d->m_oauth1TokenSecret);
+                        // Store also (possible) user_id & screen_name
+                        if (map.contains(USER_ID)) {
+                            //qDebug() << "Found user_id:" << map[USER_ID].toAscii();
+                            d->m_oauth1UserId = map[USER_ID].toAscii();
+                            response.setUserId(d->m_oauth1UserId);
+                            token.insert(USER_ID, d->m_oauth1UserId);
+                        }
+                        if (map.contains(SCREEN_NAME)) {
+                            //qDebug() << "Found screen_name:" << map[SCREEN_NAME].toAscii();
+                            d->m_oauth1ScreenName = map[SCREEN_NAME].toAscii();
+                            response.setScreenName(d->m_oauth1ScreenName);
+                            token.insert(SCREEN_NAME, d->m_oauth1ScreenName);
+                        }
+
                         d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
                         tokens.setTokens(d->m_tokens);
                         emit store(tokens);
 
-                        OAuth1PluginTokenData response;
-                        response.setAccessToken(d->m_oauth1Token);
                         emit result(response);
                     }
                 }
