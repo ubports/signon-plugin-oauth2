@@ -192,8 +192,19 @@ namespace OAuth2PluginNS {
         url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
         url.addQueryItem(QString("type"), d->m_mechanism);
         if (!d->m_oauth2Data.Scope().empty()) {
-            // Passing comma de-limited list of scope
-            url.addQueryItem(QString("scope"), d->m_oauth2Data.Scope().join(","));
+            QString separator = QLatin1String(" ");
+
+            /* The scopes separator defined in the OAuth 2.0 spec is a space;
+             * unfortunately facebook accepts only a comma, so we have to treat
+             * it as a special case. See:
+             * http://bugs.developers.facebook.net/show_bug.cgi?id=11120
+             */
+            if (d->m_oauth2Data.Host().contains(QLatin1String("facebook.com"))) {
+                separator = QLatin1String(",");
+            }
+
+            // Passing list of scopes
+            url.addQueryItem(QString("scope"), d->m_oauth2Data.Scope().join(separator));
         }
         TRACE() << "Url = " << url.toString();
         SignOn::UiSessionData uiSession;
