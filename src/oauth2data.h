@@ -65,6 +65,11 @@ namespace OAuth2PluginNS {
          * access scope
          */
         SIGNON_SESSION_DECLARE_PROPERTY(QStringList, Scope);
+
+        /*!
+         * response type
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(QString, ResponseType);
     };
 
     class OAuth2PluginTokenData : public SignOn::SessionData

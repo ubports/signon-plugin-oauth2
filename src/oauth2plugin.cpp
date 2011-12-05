@@ -64,6 +64,8 @@ namespace OAuth2PluginNS {
     const int HTTP_STATUS_OK = 200;
     const QString AUTH_CODE = QString("code");
     const QString REDIRECT_URI = QString("redirect_uri");
+    const QString RESPONSE_TYPE = QString("response_type");
+    const QString RESPONSE_TYPE_TOKEN = QString("token");
     const QString USERNAME = QString("username");
     const QString PASSWORD = QString("password");
     const QString ASSERTION_TYPE = QString("assertion_type");
@@ -190,6 +192,11 @@ namespace OAuth2PluginNS {
         QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
         url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
         url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
+        if (!d->m_oauth2Data.ResponseType().isEmpty()) {
+            url.addQueryItem(RESPONSE_TYPE, d->m_oauth2Data.ResponseType());
+        } else {
+            url.addQueryItem(RESPONSE_TYPE, RESPONSE_TYPE_TOKEN);
+        }
         url.addQueryItem(QString("type"), d->m_mechanism);
         if (!d->m_oauth2Data.Scope().empty()) {
             QString separator = QLatin1String(" ");
