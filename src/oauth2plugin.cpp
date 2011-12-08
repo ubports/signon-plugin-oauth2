@@ -245,12 +245,15 @@ namespace OAuth2PluginNS {
             OAuth2PluginData input = inData.data<OAuth2PluginData>();
             if (input.Host().isEmpty()
                 || input.ClientId().isEmpty()
-                || input.ClientSecret().isEmpty()
                 || input.RedirectUri().isEmpty()
                 || input.AuthPath().isEmpty()
                 || ((mechanism == WEB_SERVER)
                     && (input.TokenPath().isEmpty()))) {
                 return false;
+            }
+            if (mechanism == WEB_SERVER) {
+                if (input.ClientSecret().isEmpty())
+                    return false;
             }
         }
         else {
