@@ -64,6 +64,7 @@ namespace OAuth2PluginNS {
     const int HTTP_STATUS_OK = 200;
     const QString AUTH_CODE = QString("code");
     const QString REDIRECT_URI = QString("redirect_uri");
+    const QString RESPONSE_TYPE = QString("response_type");
     const QString USERNAME = QString("username");
     const QString PASSWORD = QString("password");
     const QString ASSERTION_TYPE = QString("assertion_type");
@@ -120,6 +121,9 @@ namespace OAuth2PluginNS {
             m_oauth1TokenSecret.clear();
             m_oauth1TokenVerifier.clear();
             m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
+
+            // Initialize randomizer
+            qsrand(QTime::currentTime().msec());
         }
 
         ~Private()
@@ -190,10 +194,25 @@ namespace OAuth2PluginNS {
         QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
         url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
         url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
+        if (!d->m_oauth2Data.ResponseType().isEmpty()) {
+            url.addQueryItem(RESPONSE_TYPE,
+                             d->m_oauth2Data.ResponseType().join(" "));
+        }
         url.addQueryItem(QString("type"), d->m_mechanism);
         if (!d->m_oauth2Data.Scope().empty()) {
-            // Passing comma de-limited list of scope
-            url.addQueryItem(QString("scope"), d->m_oauth2Data.Scope().join(","));
+            QString separator = QLatin1String(" ");
+
+            /* The scopes separator defined in the OAuth 2.0 spec is a space;
+             * unfortunately facebook accepts only a comma, so we have to treat
+             * it as a special case. See:
+             * http://bugs.developers.facebook.net/show_bug.cgi?id=11120
+             */
+            if (d->m_oauth2Data.Host().contains(QLatin1String("facebook.com"))) {
+                separator = QLatin1String(",");
+            }
+
+            // Passing list of scopes
+            url.addQueryItem(QString("scope"), d->m_oauth2Data.Scope().join(separator));
         }
         TRACE() << "Url = " << url.toString();
         SignOn::UiSessionData uiSession;
@@ -229,12 +248,15 @@ namespace OAuth2PluginNS {
             OAuth2PluginData input = inData.data<OAuth2PluginData>();
             if (input.Host().isEmpty()
                 || input.ClientId().isEmpty()
-                || input.ClientSecret().isEmpty()
                 || input.RedirectUri().isEmpty()
                 || input.AuthPath().isEmpty()
                 || ((mechanism == WEB_SERVER)
                     && (input.TokenPath().isEmpty()))) {
                 return false;
+            }
+            if (mechanism == WEB_SERVER) {
+                if (input.ClientSecret().isEmpty())
+                    return false;
             }
         }
         else {
@@ -473,8 +495,8 @@ namespace OAuth2PluginNS {
                           .arg(urlEncode(inData.ConsumerKey())));
         authHeader.append(DELIMITER);
         // Nonce
-        unsigned long nonce1 = (unsigned long) random();
-        unsigned long nonce2 = (unsigned long) random();
+        unsigned long nonce1 = (unsigned long) qrand();
+        unsigned long nonce2 = (unsigned long) qrand();
         QString oauthNonce = QString("%1%2").arg(nonce1).arg(nonce2);
         authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_NONCE)
                           .arg(urlEncode(oauthNonce)));
