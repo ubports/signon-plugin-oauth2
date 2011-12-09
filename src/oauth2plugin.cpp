@@ -121,6 +121,9 @@ namespace OAuth2PluginNS {
             m_oauth1TokenSecret.clear();
             m_oauth1TokenVerifier.clear();
             m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
+
+            // Initialize randomizer
+            qsrand(QTime::currentTime().msec());
         }
 
         ~Private()
@@ -492,8 +495,8 @@ namespace OAuth2PluginNS {
                           .arg(urlEncode(inData.ConsumerKey())));
         authHeader.append(DELIMITER);
         // Nonce
-        unsigned long nonce1 = (unsigned long) random();
-        unsigned long nonce2 = (unsigned long) random();
+        unsigned long nonce1 = (unsigned long) qrand();
+        unsigned long nonce2 = (unsigned long) qrand();
         QString oauthNonce = QString("%1%2").arg(nonce1).arg(nonce2);
         authHeader.append(EQUAL_WITH_QUOTES.arg(OAUTH_NONCE)
                           .arg(urlEncode(oauthNonce)));
