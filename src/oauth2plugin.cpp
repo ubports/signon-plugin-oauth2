@@ -35,7 +35,7 @@
 #ifdef TRACE
 #undef TRACE
 #endif
-#define TRACE() qDebug() << __FILE__ << __LINE__ << __func__ << ":\t"
+#define TRACE() qDebug() << __FILE__ << __LINE__ << __func__ << ":"
 
 using namespace SignOn;
 
@@ -349,14 +349,14 @@ namespace OAuth2PluginNS {
                     response.setAccessToken(token.value(TOKEN).toByteArray());
                     response.setTokenSecret(token.value(SECRET).toByteArray());
 
-            if (token.contains(USER_ID)) {
-                //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
-                response.setUserId(token.value(USER_ID).toByteArray());
-            }
-            if (token.contains(SCREEN_NAME)) {
-                //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
-                response.setScreenName(token.value(SCREEN_NAME).toByteArray());
-            }
+                    if (token.contains(USER_ID)) {
+                        //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
+                        response.setUserId(token.value(USER_ID).toByteArray());
+                    }
+                    if (token.contains(SCREEN_NAME)) {
+                        //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
+                        response.setScreenName(token.value(SCREEN_NAME).toByteArray());
+                    }
 
                     emit result(response);
                     return;
