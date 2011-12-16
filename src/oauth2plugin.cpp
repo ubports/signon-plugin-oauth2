@@ -273,6 +273,43 @@ namespace OAuth2PluginNS {
         return true;
     }
 
+    bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
+                                              const QString &mechanism)
+    {
+        //return stored session if it is valid
+        if (token.value(EXPIRY).toUInt() > QDateTime::currentDateTime().toTime_t()) {
+            if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
+                OAuth2PluginTokenData response;
+                response.setAccessToken(token.value(TOKEN).toByteArray());
+                response.setRefreshToken(token.value(REFRESH_TOKEN).toByteArray());
+                response.setExpiresIn(token.value(EXPIRY).toUInt());
+                emit result(response);
+                return true;
+            }
+        }
+        else if (token.contains(TOKEN) && token.contains(SECRET)) {
+            if (mechanism == HMAC_SHA1 || mechanism == RSA_SHA1 || mechanism == PLAINTEXT) {
+                OAuth1PluginTokenData response;
+                response.setAccessToken(token.value(TOKEN).toByteArray());
+                response.setTokenSecret(token.value(SECRET).toByteArray());
+
+                if (token.contains(USER_ID)) {
+                    //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
+                    response.setUserId(token.value(USER_ID).toByteArray());
+                }
+                if (token.contains(SCREEN_NAME)) {
+                    //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
+                    response.setScreenName(token.value(SCREEN_NAME).toByteArray());
+                }
+
+                emit result(response);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     void OAuth2Plugin::process(const SignOn::SessionData &inData,
                                const QString &mechanism)
     {
@@ -329,38 +366,10 @@ namespace OAuth2PluginNS {
         }
 
         QVariant tokenVar = d->m_tokens.value(d->m_key);
-        QVariantMap token;
         if (tokenVar.canConvert<QVariantMap>()) {
-            token = tokenVar.value<QVariantMap>();
-            //return stored session if it is valid
-            if (token.value("Expiry").toUInt() > QDateTime::currentDateTime().toTime_t()) {
-                if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
-                    OAuth2PluginTokenData response;
-                    response.setAccessToken(token.value(TOKEN).toByteArray());
-                    response.setRefreshToken(token.value(REFRESH_TOKEN).toByteArray());
-                    response.setExpiresIn(token.value(EXPIRY).toUInt());
-                    emit result(response);
-                    return;
-                }
-            }
-            else if (token.contains(TOKEN) && token.contains(SECRET)) {
-                if (mechanism == HMAC_SHA1 || mechanism == RSA_SHA1 || mechanism == PLAINTEXT) {
-                    OAuth1PluginTokenData response;
-                    response.setAccessToken(token.value(TOKEN).toByteArray());
-                    response.setTokenSecret(token.value(SECRET).toByteArray());
-
-                    if (token.contains(USER_ID)) {
-                        //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
-                        response.setUserId(token.value(USER_ID).toByteArray());
-                    }
-                    if (token.contains(SCREEN_NAME)) {
-                        //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
-                        response.setScreenName(token.value(SCREEN_NAME).toByteArray());
-                    }
-
-                    emit result(response);
-                    return;
-                }
+            QVariantMap token = tokenVar.value<QVariantMap>();
+            if (respondWithStoredToken(token, mechanism)) {
+                return;
             }
         }
 
