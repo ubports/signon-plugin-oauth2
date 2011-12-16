@@ -35,7 +35,7 @@
 #ifdef TRACE
 #undef TRACE
 #endif
-#define TRACE() qDebug() << __FILE__ << __LINE__ << __func__ << ":\t"
+#define TRACE() qDebug() << __FILE__ << __LINE__ << __func__ << ":"
 
 using namespace SignOn;
 
@@ -71,6 +71,7 @@ namespace OAuth2PluginNS {
     const QString ASSERTION = QString("assertion");
     const QString ACCESS_TOKEN = QString("access_token");
     const QString EXPIRES_IN = QString("expires_in");
+    const QString TIMESTAMP = QString("timestamp");
     const QString GRANT_TYPE = QString("grant_type");
     const QString AUTHORIZATION_CODE = QString("authorization_code");
     const QString USER_BASIC = QString("user_basic");
@@ -273,6 +274,59 @@ namespace OAuth2PluginNS {
         return true;
     }
 
+    bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
+                                              const QString &mechanism)
+    {
+        int timeToExpiry = 0;
+        // if the token is expired, ignore it
+        if (token.contains(EXPIRY)) {
+            timeToExpiry =
+                token.value(EXPIRY).toUInt() +
+                token.value(TIMESTAMP).toUInt() -
+                QDateTime::currentDateTime().toTime_t();
+            if (timeToExpiry < 0) {
+                TRACE() << "Stored token is expired";
+                return false;
+            }
+        }
+
+        if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
+            if (token.contains(TOKEN)) {
+                OAuth2PluginTokenData response;
+                response.setAccessToken(token.value(TOKEN).toByteArray());
+                if (token.contains(REFRESH_TOKEN)) {
+                    response.setRefreshToken(token.value(REFRESH_TOKEN).toByteArray());
+                }
+                if (token.contains(EXPIRY)) {
+                    response.setExpiresIn(timeToExpiry);
+                }
+                emit result(response);
+                return true;
+            }
+        }
+        else if (mechanism == HMAC_SHA1 || mechanism == RSA_SHA1 || mechanism == PLAINTEXT) {
+            if (token.contains(TOKEN) && token.contains(SECRET)) {
+                OAuth1PluginTokenData response;
+                response.setAccessToken(token.value(TOKEN).toByteArray());
+                response.setTokenSecret(token.value(SECRET).toByteArray());
+
+                if (token.contains(USER_ID)) {
+                    //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
+                    response.setUserId(token.value(USER_ID).toByteArray());
+                }
+                if (token.contains(SCREEN_NAME)) {
+                    //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
+                    response.setScreenName(token.value(SCREEN_NAME).toByteArray());
+                }
+
+                emit result(response);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     void OAuth2Plugin::process(const SignOn::SessionData &inData,
                                const QString &mechanism)
     {
@@ -329,38 +383,10 @@ namespace OAuth2PluginNS {
         }
 
         QVariant tokenVar = d->m_tokens.value(d->m_key);
-        QVariantMap token;
         if (tokenVar.canConvert<QVariantMap>()) {
-            token = tokenVar.value<QVariantMap>();
-            //return stored session if it is valid
-            if (token.value("Expiry").toUInt() > QDateTime::currentDateTime().toTime_t()) {
-                if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
-                    OAuth2PluginTokenData response;
-                    response.setAccessToken(token.value(TOKEN).toByteArray());
-                    response.setRefreshToken(token.value(REFRESH_TOKEN).toByteArray());
-                    response.setExpiresIn(token.value(EXPIRY).toUInt());
-                    emit result(response);
-                    return;
-                }
-            }
-            else if (token.contains(TOKEN) && token.contains(SECRET)) {
-                if (mechanism == HMAC_SHA1 || mechanism == RSA_SHA1 || mechanism == PLAINTEXT) {
-                    OAuth1PluginTokenData response;
-                    response.setAccessToken(token.value(TOKEN).toByteArray());
-                    response.setTokenSecret(token.value(SECRET).toByteArray());
-
-            if (token.contains(USER_ID)) {
-                //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
-                response.setUserId(token.value(USER_ID).toByteArray());
-            }
-            if (token.contains(SCREEN_NAME)) {
-                //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
-                response.setScreenName(token.value(SCREEN_NAME).toByteArray());
-            }
-
-                    emit result(response);
-                    return;
-                }
+            QVariantMap token = tokenVar.value<QVariantMap>();
+            if (respondWithStoredToken(token, mechanism)) {
+                return;
             }
         }
 
@@ -605,6 +631,8 @@ namespace OAuth2PluginNS {
                     token.insert(TOKEN, respData.AccessToken());
                     token.insert(REFRESH_TOKEN, respData.RefreshToken());
                     token.insert(EXPIRY, respData.ExpiresIn());
+                    token.insert(TIMESTAMP,
+                                 QDateTime::currentDateTime().toTime_t());
                     d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
                     tokens.setTokens(d->m_tokens);
                     emit store(tokens);
