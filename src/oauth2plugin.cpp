@@ -70,6 +70,7 @@ namespace OAuth2PluginNS {
     const QString ASSERTION_TYPE = QString("assertion_type");
     const QString ASSERTION = QString("assertion");
     const QString ACCESS_TOKEN = QString("access_token");
+    const QString DISPLAY = QString("display");
     const QString EXPIRES_IN = QString("expires_in");
     const QString TIMESTAMP = QString("timestamp");
     const QString GRANT_TYPE = QString("grant_type");
@@ -198,6 +199,9 @@ namespace OAuth2PluginNS {
         if (!d->m_oauth2Data.ResponseType().isEmpty()) {
             url.addQueryItem(RESPONSE_TYPE,
                              d->m_oauth2Data.ResponseType().join(" "));
+        }
+        if (!d->m_oauth2Data.Display().isEmpty()) {
+            url.addQueryItem(DISPLAY, d->m_oauth2Data.Display());
         }
         url.addQueryItem(QString("type"), d->m_mechanism);
         if (!d->m_oauth2Data.Scope().empty()) {
