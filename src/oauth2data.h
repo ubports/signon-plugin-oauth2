@@ -70,6 +70,11 @@ namespace OAuth2PluginNS {
          * response type
          */
         SIGNON_SESSION_DECLARE_PROPERTY(QStringList, ResponseType);
+
+        /*!
+         * Not in the OAuth2 standard: display type
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(QString, Display);
     };
 
     class OAuth2PluginTokenData : public SignOn::SessionData
