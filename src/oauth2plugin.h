@@ -72,7 +72,7 @@ namespace OAuth2PluginNS {
         void sendOAuth1PostRequest();
         const QVariantMap parseJSONReply(const QByteArray &reply);
         const QMap<QString, QString> parseTextReply(const QByteArray &reply);
-        void handleOAuth1ProblemError(const QByteArray &errorString);
+        void handleOAuth1ProblemError(const QString &errorString);
         void handleOAuth1Error(const QByteArray &reply);
         void handleOAuth2Error(const QByteArray &reply);
         QByteArray constructSignatureBaseString(const QString &aUrl,
