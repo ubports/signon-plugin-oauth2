@@ -152,6 +152,8 @@ namespace OAuth2PluginNS {
         OAuth1RequestType m_oauth1RequestType;
         QVariantMap m_tokens;
         QString m_key;
+        QString m_username;
+        QString m_password;
     }; //Private
 
     OAuth2Plugin::OAuth2Plugin(QObject *parent)
@@ -224,6 +226,12 @@ namespace OAuth2PluginNS {
         uiSession.setOpenUrl(url.toString());
         if (!d->m_oauth2Data.RedirectUri().isEmpty())
             uiSession.setFinalUrl(d->m_oauth2Data.RedirectUri());
+
+        /* add username and password, for fields initialization (the
+         * decision on whether to actually use them is up to the signon UI */
+        uiSession.setUserName(d->m_username);
+        uiSession.setSecret(d->m_password);
+
         emit userActionRequired(uiSession);
     }
 
@@ -244,6 +252,12 @@ namespace OAuth2PluginNS {
         if (!captchaUrl.isEmpty()) {
             uiSession.setCaptchaUrl(captchaUrl);
         }
+
+        /* add username and password, for fields initialization (the
+         * decision on whether to actually use them is up to the signon UI */
+        uiSession.setUserName(d->m_username);
+        uiSession.setSecret(d->m_password);
+
         emit userActionRequired(uiSession);
     }
 
@@ -393,6 +407,11 @@ namespace OAuth2PluginNS {
                 return;
             }
         }
+
+        /* Get username and password; the plugin doesn't use them, but forwards
+         * them to the signon UI */
+        d->m_username = inData.UserName();
+        d->m_password = inData.Secret();
 
         if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
             d->m_oauth2Data = inData.data<OAuth2PluginData>();
