@@ -21,7 +21,7 @@ PKGCONFIG += libsignon-qt \
     QJson
 headers.files = $$public_headers
 include( ../common-installs-config.pri )
-target.path = $${INSTALL_PREFIX}/lib/signon
+target.path = $$system(pkg-config --variable=plugindir signon-plugins)
 INSTALLS = target
 headers.path = $${INSTALL_PREFIX}/include/signon-plugins
 INSTALLS += headers
