@@ -189,6 +189,7 @@ namespace OAuth2PluginNS {
     void OAuth2Plugin::cancel()
     {
         TRACE();
+        emit error(Error(Error::SessionCanceled));
         if (d->m_reply)
             d->m_reply->abort();
     }
