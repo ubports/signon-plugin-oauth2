@@ -20,11 +20,5 @@ SOURCES += oauth2plugin.cpp
 PKGCONFIG += libsignon-qt \
     QJson
 headers.files = $$public_headers
-include( ../common-installs-config.pri )
-target.path = $$system(pkg-config --variable=plugindir signon-plugins)
-INSTALLS = target
-headers.path = $${INSTALL_PREFIX}/include/signon-plugins
-INSTALLS += headers
 pkgconfig.files = signon-oauth2plugin.pc
-pkgconfig.path = $${INSTALL_PREFIX}/lib/pkgconfig
-INSTALLS += pkgconfig
+include( ../common-installs-config.pri )

@@ -1,24 +1,6 @@
 #-----------------------------------------------------------------------------
-# Common installation configuration for all projects.
+# Installation configuration for all SSO plugins
 #-----------------------------------------------------------------------------
-
-
-#-----------------------------------------------------------------------------
-# setup the installation prefix
-#-----------------------------------------------------------------------------
-INSTALL_PREFIX = /usr  # default installation prefix
-
-# default prefix can be overriden by defining PREFIX when running qmake
-isEmpty( PREFIX ) {
-    message("====")
-    message("==== NOTE: To override the installation path run: `qmake PREFIX=/custom/path'")
-    message("==== (current installation path is `$${INSTALL_PREFIX}')")
-} else {
-    INSTALL_PREFIX = $${PREFIX}
-    message("====")
-    message("==== install prefix set to `$${INSTALL_PREFIX}'")
-}
-
 
 #-----------------------------------------------------------------------------
 # default installation target for applications
@@ -30,34 +12,40 @@ contains( TEMPLATE, app ) {
     message("==== INSTALLS += target")
 }
 
-
 #-----------------------------------------------------------------------------
 # default installation target for libraries
 #-----------------------------------------------------------------------------
 contains( TEMPLATE, lib ) {
-
-    target.path  = $${INSTALL_PREFIX}/lib
+    target.path  = $${SIGNON_PLUGINS_DIR}
     INSTALLS    += target
     message("====")
     message("==== INSTALLS += target")
-
-    # reset the .pc file's `prefix' variable
-    #include( tools/fix-pc-prefix.pri )
-
 }
 
 #-----------------------------------------------------------------------------
 # target for header files
 #-----------------------------------------------------------------------------
 !isEmpty( headers.files ) {
-    headers.path  = $${INSTALL_PREFIX}/include/$${TARGET}
+    headers.path  = $${INSTALL_PREFIX}/include/signon-plugins
     INSTALLS     += headers
     message("====")
     message("==== INSTALLS += headers")
 } else {
     message("====")
-    message("==== NOTE: Remember to add your API headers into `headers.files' for installation!")
+    message("==== NOTE: Remember to add your plugin headers into `headers.files' for installation!")
 }
 
+#-----------------------------------------------------------------------------
+# target for header files
+#-----------------------------------------------------------------------------
+!isEmpty( pkgconfig.files ) {
+    pkgconfig.path  = $${INSTALL_LIBDIR}/pkgconfig
+    INSTALLS       += pkgconfig
+    message("====")
+    message("==== INSTALLS += pkgconfig")
+} else {
+    message("====")
+    message("==== NOTE: Remember to add your pkgconfig into `pkgconfig.files' for installation!")
+}
 
 # End of File
