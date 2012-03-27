@@ -20,9 +20,7 @@ QMAKE_CXXFLAGS += -fno-exceptions \
 # we don't like warnings...
 QMAKE_CXXFLAGS -= -Werror
 
-BUILD_DIR = builddir
 TOP_SRC_DIR     = $$PWD
-TOP_BUILD_DIR   = $${TOP_SRC_DIR}/$(BUILD_DIR)
 
 #DEFINES += QT_NO_DEBUG_OUTPUT
 DEFINES += SIGNON_TRACE
@@ -71,7 +69,7 @@ isEmpty( LIBDIR ) {
 # Default directory for signond extensions
 _PLUGINS = $$system(pkg-config --variable=plugindir signon-plugins)
 isEmpty(_PLUGINS) {
-    SIGNON_PLUGINS_DIR = $${INSTALL_LIBDIR}/signon
+    error("plugin directory not available through pkg-config")
 } else {
     SIGNON_PLUGINS_DIR = $$_PLUGINS
 }
