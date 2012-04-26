@@ -359,7 +359,7 @@ namespace OAuth2PluginNS {
 
         if (!validateInput(inData, mechanism)) {
             TRACE() << "Invalid parameters passed";
-            emit error(Error(Error::InvalidQuery));
+            emit error(Error(Error::MissingData));
             return;
         }
 
@@ -624,7 +624,7 @@ namespace OAuth2PluginNS {
         QUrl url = QUrl(data.UrlResponse());
         if (url.hasQueryItem(AUTH_ERROR)) {
             TRACE() << "Server denied access permission";
-            emit error(Error(Error::PermissionDenied, url.queryItemValue(AUTH_ERROR)));
+            emit error(Error(Error::NotAuthorized, url.queryItemValue(AUTH_ERROR)));
             return;
         }
 
@@ -647,7 +647,7 @@ namespace OAuth2PluginNS {
                     }
                 }
                 if (respData.AccessToken().isEmpty()) {
-                    emit error(Error(Error::Unknown, QString("Access token not present")));
+                    emit error(Error(Error::NotAuthorized, QString("Access token not present")));
                 } else {
                     //store session key for later use
                     OAuth2TokenData tokens;
@@ -666,7 +666,7 @@ namespace OAuth2PluginNS {
                 }
             }
             else {
-                emit error(Error(Error::Unknown, QString("Access token not present")));
+                emit error(Error(Error::NotAuthorized, QString("Access token not present")));
             }
         } else if (d->m_mechanism == WEB_SERVER) {
             // Access grant can be one of the floolwing types
@@ -713,7 +713,7 @@ namespace OAuth2PluginNS {
                 sendOAuth2PostRequest(newUrl.encodedQuery());
             }
             else {
-                emit error(Error(Error::Unknown, QString("Access grant not present")));
+                emit error(Error(Error::NotAuthorized, QString("Access grant not present")));
             }
         }
         else { // For all OAuth 1 mechanisms
@@ -727,7 +727,7 @@ namespace OAuth2PluginNS {
                 handleOAuth1ProblemError(url.queryItemValue(OAUTH_PROBLEM));
             }
             else {
-                emit error(Error(Error::Unknown, QString("oauth_verifier missing")));
+                emit error(Error(Error::NotAuthorized, QString("oauth_verifier missing")));
             }
         }
     }
@@ -765,7 +765,8 @@ namespace OAuth2PluginNS {
 
                 if (accessToken.isEmpty()) {
                     TRACE()<< "Access token is empty";
-                    emit error(Error(Error::Unknown));
+                    emit error(Error(Error::NotAuthorized,
+                                     QString("Access token is empty")));
                 }
                 else {
                     OAuth2PluginTokenData response;
@@ -785,7 +786,8 @@ namespace OAuth2PluginNS {
 
                 if (accessToken.isEmpty()) {
                     TRACE()<< "Access token is empty";
-                    emit error(Error(Error::Unknown));
+                    emit error(Error(Error::NotAuthorized,
+                                     QString("Access token is empty")));
                 }
                 else {
                     OAuth2PluginTokenData response;
@@ -844,7 +846,7 @@ namespace OAuth2PluginNS {
                     d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
                     if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
                         TRACE() << "OAuth request token  or secret is empty";
-                        emit error(Error(Error::Unknown, QString("Request token or secret missing")));
+                        emit error(Error(Error::OperationFailed, QString("Request token or secret missing")));
                     }
                     else {
                         sendOAuth1AuthRequest();
@@ -856,7 +858,7 @@ namespace OAuth2PluginNS {
                     d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
                     if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
                         TRACE()<< "OAuth access token or secret is empty";
-                        emit error(Error(Error::Unknown, QString("Access token or secret missing")));
+                        emit error(Error(Error::OperationFailed, QString("Access token or secret missing")));
                     }
                     else {
                         OAuth1PluginTokenData response;
@@ -908,7 +910,7 @@ namespace OAuth2PluginNS {
     void OAuth2Plugin::handleOAuth1ProblemError(const QString &errorString)
     {
         TRACE();
-        Error::ErrorType type = Error::Unknown;
+        Error::ErrorType type = Error::OperationFailed;
         if (errorString == OAUTH_USER_REFUSED || errorString == OAUTH_PERMISSION_DENIED) {
             type = Error::PermissionDenied;
         }
@@ -931,7 +933,7 @@ namespace OAuth2PluginNS {
         }
 
         TRACE() << "Error Emitted";
-        emit error(Error(Error::Unknown, errorString));
+        emit error(Error(Error::OperationFailed, errorString));
     }
 
     void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
@@ -944,7 +946,7 @@ namespace OAuth2PluginNS {
         QVariantMap map = parseJSONReply(reply);
         QByteArray errorString = map["error"].toByteArray();
         if (!errorString.isEmpty()) {
-            Error::ErrorType type = Error::Unknown;
+            Error::ErrorType type = Error::OperationFailed;
             if (errorString == QByteArray("incorrect_client_credentials")) {
                 type = Error::InvalidCredentials;
             }
@@ -982,14 +984,9 @@ namespace OAuth2PluginNS {
 
         // Added to work with facebook Graph API's
         errorString = map["message"].toByteArray();
-        if (!errorString.isEmpty()) {
-            TRACE() << "Error Emitted";
-            emit error(Error(Error::OperationFailed, errorString));
-            return;
-        }
 
         TRACE() << "Error Emitted";
-        emit error(Error(Error::Unknown, errorString));
+        emit error(Error(Error::OperationFailed, errorString));
     }
 
     bool OAuth2Plugin::handleNetworkError(QNetworkReply::NetworkError err)
