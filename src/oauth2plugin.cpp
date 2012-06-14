@@ -1114,7 +1114,8 @@ namespace OAuth2PluginNS {
         foreach (QByteArray item, items) {
             int idx = item.indexOf("=");
             if (idx > -1) {
-                map.insert(item.left(idx), item.mid(idx + 1));
+                map.insert(item.left(idx),
+                           QByteArray::fromPercentEncoding(item.mid(idx + 1)));
             }
         }
         return map;
