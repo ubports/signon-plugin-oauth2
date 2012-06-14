@@ -64,6 +64,9 @@ namespace OAuth2PluginNS {
     class OAuth1PluginTokenData : public SignOn::SessionData
     {
     public:
+        OAuth1PluginTokenData(const QVariantMap &data = QVariantMap()):
+            SignOn::SessionData(data) {}
+
         /*!
          * Access token received from the server
          */

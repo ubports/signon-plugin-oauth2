@@ -82,6 +82,7 @@ namespace OAuth2PluginNS {
         QString urlEncode(QString strData);
         QString createOAuth1Header(const QString &aUrl, OAuth1PluginData inData);
         QByteArray hashHMACSHA1(const QByteArray &keyForHash ,const QByteArray &secret);
+        OAuth1PluginTokenData oauth1responseFromMap(const QVariantMap &map) const;
 
         class Private;
         Private *d; // Owned.
