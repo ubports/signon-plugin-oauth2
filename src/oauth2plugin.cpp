@@ -324,19 +324,9 @@ namespace OAuth2PluginNS {
             }
         }
         else if (mechanism == HMAC_SHA1 || mechanism == RSA_SHA1 || mechanism == PLAINTEXT) {
-            if (token.contains(TOKEN) && token.contains(SECRET)) {
-                OAuth1PluginTokenData response;
-                response.setAccessToken(token.value(TOKEN).toByteArray());
-                response.setTokenSecret(token.value(SECRET).toByteArray());
-
-                if (token.contains(USER_ID)) {
-                    //qDebug() << "Found user_id:" << token.value(USER_ID).toByteArray();
-                    response.setUserId(token.value(USER_ID).toByteArray());
-                }
-                if (token.contains(SCREEN_NAME)) {
-                    //qDebug() << "Found screen_name:" << token.value(SCREEN_NAME).toByteArray();
-                    response.setScreenName(token.value(SCREEN_NAME).toByteArray());
-                }
+            if (token.contains(OAUTH_TOKEN) &&
+                token.contains(OAUTH_TOKEN_SECRET)) {
+                OAuth1PluginTokenData response = oauth1responseFromMap(token);
 
                 emit result(response);
                 return true;
@@ -349,7 +339,6 @@ namespace OAuth2PluginNS {
     void OAuth2Plugin::process(const SignOn::SessionData &inData,
                                const QString &mechanism)
     {
-        TRACE();
         OAuth2PluginData input;
 
         if ((!mechanism.isEmpty()) && (!mechanisms().contains(mechanism))) {
@@ -861,28 +850,18 @@ namespace OAuth2PluginNS {
                         emit error(Error(Error::OperationFailed, QString("Access token or secret missing")));
                     }
                     else {
-                        OAuth1PluginTokenData response;
-                        response.setAccessToken(d->m_oauth1Token);
-                        response.setTokenSecret(d->m_oauth1TokenSecret);
+                        QVariantMap siteResponse;
+                        QMap<QString, QString>::iterator i;
+                        for (i = map.begin(); i != map.end(); i++) {
+                            siteResponse.insert(i.key(), i.value());
+                        }
+                        OAuth1PluginTokenData response =
+                            oauth1responseFromMap(siteResponse);
 
                         // storing token and token secret for later use
                         OAuth2TokenData tokens;
-                        QVariantMap token;
-                        token.insert(TOKEN, d->m_oauth1Token);
-                        token.insert(SECRET, d->m_oauth1TokenSecret);
-                        // Store also (possible) user_id & screen_name
-                        if (map.contains(USER_ID)) {
-                            d->m_oauth1UserId = map[USER_ID];
-                            response.setUserId(d->m_oauth1UserId);
-                            token.insert(USER_ID, d->m_oauth1UserId);
-                        }
-                        if (map.contains(SCREEN_NAME)) {
-                            d->m_oauth1ScreenName = map[SCREEN_NAME];
-                            response.setScreenName(d->m_oauth1ScreenName);
-                            token.insert(SCREEN_NAME, d->m_oauth1ScreenName);
-                        }
-
-                        d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
+                        d->m_tokens.insert(d->m_key,
+                                           QVariant::fromValue(siteResponse));
                         tokens.setTokens(d->m_tokens);
                         emit store(tokens);
 
@@ -905,6 +884,27 @@ namespace OAuth2PluginNS {
             emit error(Error(Error::OperationFailed, QString("Content missing")));
         }
         d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
+    }
+
+    OAuth1PluginTokenData
+    OAuth2Plugin::oauth1responseFromMap(const QVariantMap &map) const
+    {
+        TRACE() << "Response:" << map;
+        OAuth1PluginTokenData response(map);
+        response.setAccessToken(map[OAUTH_TOKEN].toString().toAscii());
+        response.setTokenSecret(map[OAUTH_TOKEN_SECRET].toString().toAscii());
+
+        // Store also (possible) user_id & screen_name
+        if (map.contains(USER_ID)) {
+            d->m_oauth1UserId = map[USER_ID].toString();
+            response.setUserId(d->m_oauth1UserId);
+        }
+        if (map.contains(SCREEN_NAME)) {
+            d->m_oauth1ScreenName = map[SCREEN_NAME].toString();
+            response.setScreenName(d->m_oauth1ScreenName);
+        }
+
+        return response;
     }
 
     void OAuth2Plugin::handleOAuth1ProblemError(const QString &errorString)
