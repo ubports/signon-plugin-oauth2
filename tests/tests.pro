@@ -4,8 +4,7 @@ TARGET = signon-oauth2plugin-tests
 QT += core \
     network
 CONFIG += qtestlib \
-    link_pkgconfig \
-    signon-plugins
+    link_pkgconfig
 SOURCES += oauth2plugintest.cpp
 HEADERS += oauth2plugintest.h \
     $${TOP_SRC_DIR}/src/oauth2plugin.h \
@@ -15,6 +14,7 @@ INCLUDEPATH += . \
     $${TOP_SRC_DIR}/src \
     /usr/include/signon-qt
 PKGCONFIG += libsignon-qt \
+    signon-plugins \
     QJson
 target.path = /usr/bin
 testsuite.path = /usr/share/$$TARGET
