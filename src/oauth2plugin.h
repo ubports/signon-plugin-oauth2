@@ -71,6 +71,7 @@ namespace OAuth2PluginNS {
                                     const QString &mechanism);
         void sendOAuth2PostRequest(const QByteArray &postData);
         void sendOAuth1PostRequest();
+        void storeResponse(const OAuth2PluginTokenData &response);
         const QVariantMap parseJSONReply(const QByteArray &reply);
         const QMap<QString, QString> parseTextReply(const QByteArray &reply);
         void handleOAuth1ProblemError(const QString &errorString);

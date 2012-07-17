@@ -645,18 +645,7 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
             if (respData.AccessToken().isEmpty()) {
                 emit error(Error(Error::NotAuthorized, QString("Access token not present")));
             } else {
-                //store session key for later use
-                OAuth2TokenData tokens;
-                QVariantMap token;
-                token.insert(TOKEN, respData.AccessToken());
-                token.insert(REFRESH_TOKEN, respData.RefreshToken());
-                token.insert(EXPIRY, respData.ExpiresIn());
-                token.insert(TIMESTAMP,
-                             QDateTime::currentDateTime().toTime_t());
-                d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
-                tokens.setTokens(d->m_tokens);
-                emit store(tokens);
-                TRACE() << d->m_tokens;
+                storeResponse(respData);
 
                 emit result(respData);
             }
@@ -769,6 +758,7 @@ void OAuth2Plugin::replyOAuth2RequestFinished()
                 response.setAccessToken(accessToken);
                 response.setRefreshToken(refreshToken);
                 response.setExpiresIn(expiresIn.toInt());
+                storeResponse(response);
                 emit result(response);
             }
         }
@@ -790,6 +780,7 @@ void OAuth2Plugin::replyOAuth2RequestFinished()
                 response.setAccessToken(accessToken);
                 response.setRefreshToken(refreshToken);
                 response.setExpiresIn(expiresIn.toInt());
+                storeResponse(response);
                 emit result(response);
             }
         }
@@ -1099,6 +1090,20 @@ void OAuth2Plugin::sendOAuth1PostRequest()
             this, SLOT(handleNetworkError(QNetworkReply::NetworkError)));
     connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),
             this, SLOT(handleSslErrors(QList<QSslError>)));
+}
+
+void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
+{
+    OAuth2TokenData tokens;
+    QVariantMap token;
+    token.insert(TOKEN, response.AccessToken());
+    token.insert(REFRESH_TOKEN, response.RefreshToken());
+    token.insert(EXPIRY, response.ExpiresIn());
+    token.insert(TIMESTAMP, QDateTime::currentDateTime().toTime_t());
+    d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
+    tokens.setTokens(d->m_tokens);
+    Q_EMIT store(tokens);
+    TRACE() << d->m_tokens;
 }
 
 const QVariantMap OAuth2Plugin::parseJSONReply(const QByteArray &reply)
