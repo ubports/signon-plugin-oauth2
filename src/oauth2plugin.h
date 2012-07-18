@@ -69,6 +69,7 @@ namespace OAuth2PluginNS {
         bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
         bool respondWithStoredToken(const QVariantMap &token,
                                     const QString &mechanism);
+        void refreshOAuth2Token(const QString &refreshToken);
         void sendOAuth2PostRequest(const QByteArray &postData);
         void sendOAuth1PostRequest();
         void storeResponse(const OAuth2PluginTokenData &response);

@@ -398,9 +398,10 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
     }
 
     QVariant tokenVar = d->m_tokens.value(d->m_key);
+    QVariantMap storedData;
     if (tokenVar.canConvert<QVariantMap>()) {
-        QVariantMap token = tokenVar.value<QVariantMap>();
-        if (respondWithStoredToken(token, mechanism)) {
+        storedData = tokenVar.value<QVariantMap>();
+        if (respondWithStoredToken(storedData, mechanism)) {
             return;
         }
     }
@@ -412,7 +413,14 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
 
     if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
         d->m_oauth2Data = inData.data<OAuth2PluginData>();
-        sendOAuth2AuthRequest();
+        if (mechanism == WEB_SERVER &&
+            storedData.contains(REFRESH_TOKEN)) {
+            /* If we have a refresh token, use it to get a renewed
+             * access token */
+            refreshOAuth2Token(storedData[REFRESH_TOKEN].toString());
+        } else {
+            sendOAuth2AuthRequest();
+        }
     }
     else if (mechanism == HMAC_SHA1 ||mechanism == PLAINTEXT) {
         d->m_oauth1Data = inData.data<OAuth1PluginData>();
@@ -691,11 +699,7 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
         }
         else if (url.hasQueryItem(REFRESH_TOKEN)) {
             QString refresh_token = url.queryItemValue(REFRESH_TOKEN);
-            newUrl.addQueryItem(GRANT_TYPE, REFRESH_TOKEN);
-            newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
-            newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
-            newUrl.addQueryItem(REFRESH_TOKEN, refresh_token);
-            sendOAuth2PostRequest(newUrl.encodedQuery());
+            refreshOAuth2Token(refresh_token);
         }
         else {
             emit error(Error(Error::NotAuthorized, QString("Access grant not present")));
@@ -1030,6 +1034,17 @@ void OAuth2Plugin::refresh(const SignOn::UiSessionData &data)
 {
     TRACE();
     emit refreshed(data);
+}
+
+void OAuth2Plugin::refreshOAuth2Token(const QString &refreshToken)
+{
+    TRACE() << refreshToken;
+    QUrl url;
+    url.addQueryItem(GRANT_TYPE, REFRESH_TOKEN);
+    url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+    url.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+    url.addQueryItem(REFRESH_TOKEN, refreshToken);
+    sendOAuth2PostRequest(url.encodedQuery());
 }
 
 void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData)
