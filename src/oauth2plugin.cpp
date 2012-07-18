@@ -122,10 +122,6 @@ public:
     {
         TRACE();
         m_networkProxy = QNetworkProxy::applicationProxy();
-        m_oauth1Token.clear();
-        m_oauth1TokenSecret.clear();
-        m_oauth1TokenVerifier.clear();
-        m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
 
         // Initialize randomizer
         qsrand(QTime::currentTime().msec());
@@ -423,12 +419,16 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
         }
     }
     else if (mechanism == HMAC_SHA1 ||mechanism == PLAINTEXT) {
+        d->m_oauth1Token.clear();
+        d->m_oauth1TokenSecret.clear();
+        d->m_oauth1TokenVerifier.clear();
+        d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
         d->m_oauth1Data = inData.data<OAuth1PluginData>();
         d->m_oauth1RequestType = OAUTH1_POST_REQUEST_TOKEN;
-    if (!d->m_oauth1Data.UserName().isEmpty()) {
-        d->m_oauth1ScreenName = d->m_oauth1Data.UserName();
-        //qDebug() << "Found username:" << d->m_oauth1ScreenName;
-    }
+        if (!d->m_oauth1Data.UserName().isEmpty()) {
+            d->m_oauth1ScreenName = d->m_oauth1Data.UserName();
+            //qDebug() << "Found username:" << d->m_oauth1ScreenName;
+        }
         sendOAuth1PostRequest();
     }
     else {
