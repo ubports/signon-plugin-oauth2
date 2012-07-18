@@ -2,8 +2,9 @@
  * This file is part of oauth2 plugin
  *
  * Copyright (C) 2010 Nokia Corporation.
+ * Copyright (C) 2012 Canonical Ltd.
  *
- * Contact: Alberto Mardegan <alberto.mardegan@nokia.com>
+ * Contact: Alberto Mardegan <alberto.mardegan@canonical.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -183,12 +184,12 @@ void OAuth2PluginTest::testPluginProcess()
     // Invalid mechanism
     m_testPlugin->process(userAgentData, QString("ANONYMOUS"));
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::MechanismNotAvailable);
+    QCOMPARE(m_error.type(), int(Error::MechanismNotAvailable));
 
     //try without params
     m_testPlugin->process(userAgentData, QString("user_agent"));
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::InvalidQuery);
+    QCOMPARE(m_error.type(), int(Error::MissingData));
 
     OAuth2PluginData webServerData;
     webServerData.setHost("https://localhost");
@@ -200,14 +201,14 @@ void OAuth2PluginTest::testPluginProcess()
     //try without params
     m_testPlugin->process(webServerData, QString("web_server"));
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::InvalidQuery);
+    QCOMPARE(m_error.type(), int(Error::MissingData));
 
     // Check for signon UI request for user_agent
     userAgentData.setAuthPath("authorize");
     m_testPlugin->process(userAgentData, QString("user_agent"));
     m_loop.exec();
     qDebug() << "Data = " << m_uiResponse.UrlResponse();
-    QVERIFY(m_uiResponse.UrlResponse() == QString("UI request received"));
+    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
 
     // Check for signon UI request for web_server
     m_uiResponse.setUrlResponse(QString(""));
@@ -215,14 +216,15 @@ void OAuth2PluginTest::testPluginProcess()
     m_testPlugin->process(userAgentData, QString("web_server"));
     m_loop.exec();
     qDebug() << "Data = " << m_uiResponse.UrlResponse();
-    QVERIFY(m_uiResponse.UrlResponse() == QString("UI request received"));
+    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
 
     // Check using stored responses
     QVariantMap tokens;
     QVariantMap token;
     token.insert("Token", QLatin1String("tokenfromtest"));
     token.insert("Token2", QLatin1String("token2fromtest"));
-    token.insert("Expiry", UINT_MAX);
+    token.insert("timestamp", QDateTime::currentDateTime().toTime_t());
+    token.insert("Expiry", 10000);
     tokens.insert( QLatin1String("invalidid"), QVariant::fromValue(token));
     webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
 
@@ -231,16 +233,15 @@ void OAuth2PluginTest::testPluginProcess()
     m_loop.exec();
     OAuth2PluginTokenData resp = m_response.data<OAuth2PluginTokenData>();
     QVERIFY(resp.AccessToken() != QLatin1String("tokenfromtest"));
-    QVERIFY(m_error.type() == Error::InvalidQuery);
+    QCOMPARE(m_error.type(), int(Error::MissingData));
 
     tokens.insert( webServerData.ClientId(), QVariant::fromValue(token));
     webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
 
-    //try without params
     m_testPlugin->process(webServerData, QString("web_server"));
     m_loop.exec();
     resp = m_response.data<OAuth2PluginTokenData>();
-    QVERIFY(resp.AccessToken() == QLatin1String("tokenfromtest"));
+    QCOMPARE(resp.AccessToken(), QLatin1String("tokenfromtest"));
 
 
     TEST_DONE
@@ -270,46 +271,46 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     m_testPlugin->process(data, QString("user_agent"));
     m_loop.exec();
     qDebug() << "Data = " << m_uiResponse.UrlResponse();
-    QVERIFY(m_uiResponse.UrlResponse() == QString("UI request received"));
+    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
 
     //empty data
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::Unknown);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     //invalid data
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=&expires_in=4776"));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::Unknown);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     //Invalid data
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html"));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::Unknown);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     //valid data
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=testtoken.&expires_in=4776"));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
     OAuth2PluginTokenData *result = (OAuth2PluginTokenData*)&m_response;
-    QVERIFY(result->AccessToken() == QString("testtoken."));
-    QVERIFY(result->ExpiresIn() == 4776);
+    QCOMPARE(result->AccessToken(), QString("testtoken."));
+    QCOMPARE(result->ExpiresIn(), 4776);
 
     //valid data
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=testtoken."));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
     result = (OAuth2PluginTokenData*)&m_response;
-    QVERIFY(result->AccessToken() == QString("testtoken."));
-    QVERIFY(result->ExpiresIn() == 0);
+    QCOMPARE(result->AccessToken(), QString("testtoken."));
+    QCOMPARE(result->ExpiresIn(), 0);
 
     //Permission denied
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html?error=user_denied"));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::PermissionDenied);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     TEST_DONE
 }
@@ -338,30 +339,30 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
     m_testPlugin->process(data, QString("web_server"));
     m_loop.exec();
     qDebug() << "Data = " << m_uiResponse.UrlResponse();
-    QVERIFY(m_uiResponse.UrlResponse() == QString("UI request received"));
+    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
 
     //empty data
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::Unknown);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     //invalid data
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html"));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::Unknown);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     //Permission denied
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html?error=user_denied"));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::PermissionDenied);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     //invalid data
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html?sdsdsds=access.grant."));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QVERIFY(m_error.type() == Error::Unknown);
+    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
     TEST_DONE
 }

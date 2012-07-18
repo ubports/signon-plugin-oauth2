@@ -5,11 +5,14 @@ builddir
 build-stamp
 configure-stamp
 core
+coverage-html
 debian
 moc_*
 tests/signon-oauth2plugin-tests
 *~
 *.a
+*.gcda
+*.gcno
 *.moc
 *.o
 *.so

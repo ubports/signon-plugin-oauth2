@@ -2,8 +2,9 @@
  * This file is part of oauth2 plugin
  *
  * Copyright (C) 2010 Nokia Corporation.
+ * Copyright (C) 2012 Canonical Ltd.
  *
- * Contact: Alberto Mardegan <alberto.mardegan@nokia.com>
+ * Contact: Alberto Mardegan <alberto.mardegan@canonical.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -68,8 +69,10 @@ namespace OAuth2PluginNS {
         bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
         bool respondWithStoredToken(const QVariantMap &token,
                                     const QString &mechanism);
+        void refreshOAuth2Token(const QString &refreshToken);
         void sendOAuth2PostRequest(const QByteArray &postData);
         void sendOAuth1PostRequest();
+        void storeResponse(const OAuth2PluginTokenData &response);
         const QVariantMap parseJSONReply(const QByteArray &reply);
         const QMap<QString, QString> parseTextReply(const QByteArray &reply);
         void handleOAuth1ProblemError(const QString &errorString);
