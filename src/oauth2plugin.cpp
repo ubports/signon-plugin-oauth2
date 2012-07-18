@@ -414,7 +414,8 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
     if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
         d->m_oauth2Data = inData.data<OAuth2PluginData>();
         if (mechanism == WEB_SERVER &&
-            storedData.contains(REFRESH_TOKEN)) {
+            storedData.contains(REFRESH_TOKEN) &&
+            !storedData[REFRESH_TOKEN].toString().isEmpty()) {
             /* If we have a refresh token, use it to get a renewed
              * access token */
             refreshOAuth2Token(storedData[REFRESH_TOKEN].toString());
