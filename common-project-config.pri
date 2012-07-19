@@ -74,3 +74,5 @@ isEmpty(_PLUGINS) {
     SIGNON_PLUGINS_DIR = $$_PLUGINS
 }
 SIGNON_PLUGINS_DIR_QUOTED = \\\"$$SIGNON_PLUGINS_DIR\\\"
+
+include( coverage.pri )

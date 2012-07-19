@@ -21,3 +21,10 @@ testsuite.path = /usr/share/$$TARGET
 testsuite.files = tests.xml
 INSTALLS += target \
     testsuite
+
+check.depends = $$TARGET
+check.commands = ./$$TARGET || :
+QMAKE_EXTRA_TARGETS += check
+
+QMAKE_CLEAN += $$TARGET
+
