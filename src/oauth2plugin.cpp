@@ -168,13 +168,15 @@ bool OAuth2Plugin::validateInput(const SignOn::SessionData &inData,
     if (input.Host().isEmpty()
         || input.ClientId().isEmpty()
         || input.RedirectUri().isEmpty()
-        || input.AuthPath().isEmpty()
-        || ((mechanism == WEB_SERVER)
-            && (input.TokenPath().isEmpty()))) {
+        || input.AuthPath().isEmpty())
         return false;
-    }
+
     if (mechanism == WEB_SERVER) {
-        if (input.ClientSecret().isEmpty())
+        /* According to the specs, the client secret is also required; however,
+         * some services do not require it, see for instance point 8 from
+         * http://msdn.microsoft.com/en-us/library/live/hh243647.aspx#authcodegrant
+         */
+        if (input.TokenPath().isEmpty())
             return false;
     }
 
@@ -518,7 +520,9 @@ void OAuth2Plugin::refreshOAuth2Token(const QString &refreshToken)
     QUrl url;
     url.addQueryItem(GRANT_TYPE, REFRESH_TOKEN);
     url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
-    url.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+    if (!d->m_oauth2Data.ClientSecret().isEmpty()) {
+        url.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+    }
     url.addQueryItem(REFRESH_TOKEN, refreshToken);
     sendOAuth2PostRequest(url.encodedQuery());
 }
