@@ -25,7 +25,7 @@
 #define OAUTH2PLUGINTEST_H
 
 #include <QString>
-#include "oauth2plugin.h"
+#include "plugin.h"
 #include "SignOn/AuthPluginInterface"
 
 using namespace OAuth2PluginNS;
@@ -57,7 +57,7 @@ private slots:
     void testPluginWebserverUserActionFinished();
 
 private:
-    OAuth2Plugin *m_testPlugin;
+    Plugin *m_testPlugin;
     SignOn::Error m_error;
     SignOn::SessionData m_response;
     SignOn::UiSessionData m_uiResponse;

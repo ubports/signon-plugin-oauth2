@@ -5,11 +5,18 @@ QT += core \
     network
 CONFIG += qtestlib \
     link_pkgconfig
-SOURCES += oauth2plugintest.cpp
-HEADERS += oauth2plugintest.h \
-    $${TOP_SRC_DIR}/src/oauth2plugin.h \
+SOURCES += \
+    $${TOP_SRC_DIR}/src/base-plugin.cpp \
     $${TOP_SRC_DIR}/src/oauth2plugin.cpp \
-    $${TOP_SRC_DIR}/src/oauth2data.h
+    $${TOP_SRC_DIR}/src/oauth1plugin.cpp \
+    $${TOP_SRC_DIR}/src/plugin.cpp \
+    oauth2plugintest.cpp
+HEADERS += \
+    $${TOP_SRC_DIR}/src/base-plugin.h \
+    $${TOP_SRC_DIR}/src/oauth2plugin.h \
+    $${TOP_SRC_DIR}/src/oauth1plugin.h \
+    $${TOP_SRC_DIR}/src/plugin.h \
+    oauth2plugintest.h
 INCLUDEPATH += . \
     $${TOP_SRC_DIR}/src \
     /usr/include/signon-qt

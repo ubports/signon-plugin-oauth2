@@ -23,13 +23,13 @@
 
 #include <QtTest/QtTest>
 
-#include "oauth2plugin.h"
+#include "plugin.h"
 #include "oauth2data.h"
-#include "oauth2plugin.cpp"
 
 #include "oauth2plugintest.h"
 
 using namespace OAuth2PluginNS;
+using namespace SignOn;
 
 #define TEST_START qDebug("\n\n\n\n ----------------- %s ----------------\n\n",  __func__);
 #define TEST_DONE  qDebug("\n\n ----------------- %s DONE ----------------\n\n",  __func__);
@@ -53,7 +53,7 @@ void OAuth2PluginTest::cleanupTestCase()
 //prepare each test by creating new plugin
 void OAuth2PluginTest::init()
 {
-    m_testPlugin = new OAuth2Plugin();
+    m_testPlugin = new Plugin();
 }
 
 //finnish each test by deleting plugin
@@ -111,7 +111,6 @@ void OAuth2PluginTest::testPlugin()
 
     qDebug() << "Checking plugin integrity.";
     QVERIFY(m_testPlugin);
-    QVERIFY(m_testPlugin->d);
 
     TEST_DONE
 }
@@ -149,15 +148,21 @@ void OAuth2PluginTest::testPluginCancel()
     m_testPlugin->cancel();
 
     //then real cancel
-    m_testPlugin->d->m_manager=new QNetworkAccessManager();
-    connect(m_testPlugin->d->m_manager, SIGNAL(finished(QNetworkReply*)),
-            this,  SLOT(aborted(QNetworkReply*)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error &)),
+                     this, SLOT(pluginError(const SignOn::Error &)),
+                     Qt::QueuedConnection);
 
-    QNetworkRequest request(QUrl("http://localhost/"));
-    m_testPlugin->d->m_reply = m_testPlugin->d->m_manager->post(request, QByteArray("Query String"));
+    OAuth2PluginData userAgentData;
+    userAgentData.setHost("https://localhost");
+    userAgentData.setAuthPath("access_token");
+    userAgentData.setClientId("104660106251471");
+    userAgentData.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    userAgentData.setRedirectUri("http://localhost/connect/login_success.html");
 
+    m_testPlugin->process(userAgentData, QString("user_agent"));
     m_testPlugin->cancel();
     m_loop.exec();
+    QCOMPARE(m_error.type(), int(Error::SessionCanceled));
 
     TEST_DONE
 }

@@ -12,10 +12,20 @@ CONFIG += plugin \
     warn_on \
     link_pkgconfig
 public_headers += oauth2data.h oauth1data.h
-private_headers = oauth2plugin.h oauth2tokendata.h
+private_headers = \
+    base-plugin.h \
+    common.h \
+    oauth1plugin.h \
+    oauth2plugin.h \
+    oauth2tokendata.h \
+    plugin.h
 HEADERS = $$public_headers \
     $$private_headers
-SOURCES += oauth2plugin.cpp
+SOURCES += \
+    base-plugin.cpp \
+    oauth1plugin.cpp \
+    oauth2plugin.cpp \
+    plugin.cpp
 PKGCONFIG += libsignon-qt \
     signon-plugins \
     QJson
