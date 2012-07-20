@@ -21,58 +21,59 @@
  * 02110-1301 USA
  */
 
-#ifndef SIGNON_PLUGIN_OAUTH2
-#define SIGNON_PLUGIN_OAUTH2
+#ifndef SIGNON_PLUGIN_OAUTH1
+#define SIGNON_PLUGIN_OAUTH1
 
 #include <QtCore>
 
-#include <SignOn/AuthPluginInterface>
-#include <SignOn/SessionData>
-#include <SignOn/Error>
-
 #include "base-plugin.h"
-#include "oauth2data.h"
+#include "oauth1data.h"
 
 namespace OAuth2PluginNS {
 
 /*!
- * @class OAuth2Plugin
- * OAuth 2.0 authentication plugin.
+ * @class OAuth1Plugin
+ * OAuth 1.0a authentication plugin.
  */
-class OAuth2PluginPrivate;
-class OAuth2Plugin: public BasePlugin
+class OAuth1PluginPrivate;
+class OAuth1Plugin: public BasePlugin
 {
     Q_OBJECT
 
 public:
-    OAuth2Plugin(QObject *parent = 0);
-    ~OAuth2Plugin();
+    OAuth1Plugin(QObject *parent = 0);
+    ~OAuth1Plugin();
 
     static QStringList mechanisms();
 
-    void process(const SignOn::SessionData &inData, const QString &mechanism);
+    void process(const SignOn::SessionData &inData, const QString &mechanism = 0);
     void userActionFinished(const SignOn::UiSessionData &data);
 
 protected:
-    void serverReply(QNetworkReply *);
+    void serverReply(QNetworkReply *reply);
 
 private:
-    void sendOAuth2AuthRequest();
+    void sendOAuth1AuthRequest(const QString &captchaUrl = 0);
     bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
     bool respondWithStoredToken(const QVariantMap &token,
                                 const QString &mechanism);
-    void refreshOAuth2Token(const QString &refreshToken);
-    void sendOAuth2PostRequest(const QByteArray &postData);
-    void storeResponse(const OAuth2PluginTokenData &response);
-    const QVariantMap parseJSONReply(const QByteArray &reply);
+    void sendOAuth1PostRequest();
     const QMap<QString, QString> parseTextReply(const QByteArray &reply);
-    void handleOAuth2Error(const QByteArray &reply);
+    void handleOAuth1ProblemError(const QString &errorString);
+    void handleOAuth1Error(const QByteArray &reply);
+    QByteArray constructSignatureBaseString(const QString &aUrl,
+                                            const OAuth1PluginData &inData,
+                                            const QString &timestamp,
+                                            const QString &nonce);
     QString urlEncode(QString strData);
+    QString createOAuth1Header(const QString &aUrl, OAuth1PluginData inData);
+    QByteArray hashHMACSHA1(const QByteArray &keyForHash ,const QByteArray &secret);
+    OAuth1PluginTokenData oauth1responseFromMap(const QVariantMap &map);
 
-    OAuth2PluginPrivate *d_ptr;
-    Q_DECLARE_PRIVATE(OAuth2Plugin)
+    OAuth1PluginPrivate *d_ptr;
+    Q_DECLARE_PRIVATE(OAuth1Plugin)
 };
 
 } //namespace OAuth2PluginNS
 
-#endif // SIGNON_PLUGIN_OAUTH2
+#endif // SIGNON_PLUGIN_OAUTH1
