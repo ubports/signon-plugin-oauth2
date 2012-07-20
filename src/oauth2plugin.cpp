@@ -24,7 +24,6 @@
 #include <QUrl>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
-#include <QNetworkProxy>
 #include <QDateTime>
 
 #include <qjson/parser.h>
@@ -74,11 +73,9 @@ class OAuth2PluginPrivate
 {
 public:
     OAuth2PluginPrivate():
-        m_manager(0),
         m_reply(0)
     {
         TRACE();
-        m_networkProxy = QNetworkProxy::applicationProxy();
 
         // Initialize randomizer
         qsrand(QTime::currentTime().msec());
@@ -89,12 +86,8 @@ public:
         TRACE();
         if (m_reply)
             m_reply->deleteLater();
-        if (m_manager)
-            m_manager->deleteLater();
     }
 
-    QNetworkAccessManager *m_manager;
-    QNetworkProxy m_networkProxy;
     QNetworkReply *m_reply;
     QString m_mechanism;
     OAuth2PluginData m_oauth2Data;
@@ -252,23 +245,6 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
         TRACE() << "Invalid parameters passed";
         emit error(Error(Error::MissingData));
         return;
-    }
-
-    QString proxy = inData.NetworkProxy();
-    //set proxy from params
-    if (!proxy.isEmpty()) {
-        QUrl proxyUrl(proxy);
-        if (!proxyUrl.host().isEmpty()) {
-            d->m_networkProxy = QNetworkProxy(
-                    QNetworkProxy::HttpProxy,
-                    proxyUrl.host(),
-                    proxyUrl.port(),
-                    proxyUrl.userName(),
-                    proxyUrl.password());
-            TRACE() << proxyUrl.host() << ":" <<  proxyUrl.port();
-        }
-    } else {
-        d->m_networkProxy = QNetworkProxy::applicationProxy();
     }
 
     d->m_mechanism = mechanism;
@@ -622,18 +598,13 @@ void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData)
 
     TRACE();
 
-    if (!d->m_manager) {
-        d->m_manager = new QNetworkAccessManager();
-        d->m_manager->setProxy(d->m_networkProxy);
-    }
-
     QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host())
              .arg(d->m_oauth2Data.TokenPath()));
     QNetworkRequest request(url);
     request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
 
     TRACE() << "Query string = " << postData;
-    d->m_reply = d->m_manager->post(request, postData);
+    d->m_reply = networkAccessManager()->post(request, postData);
     connect(d->m_reply, SIGNAL(finished()),
             this, SLOT(replyOAuth2RequestFinished()));
     connect(d->m_reply, SIGNAL(error(QNetworkReply::NetworkError)),

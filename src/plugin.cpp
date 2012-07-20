@@ -26,6 +26,9 @@
 #include "oauth2plugin.h"
 #include "plugin.h"
 
+#include <QNetworkAccessManager>
+#include <QNetworkProxy>
+
 using namespace SignOn;
 using namespace OAuth2PluginNS;
 
@@ -35,7 +38,8 @@ SIGNON_DECL_AUTH_PLUGIN(Plugin)
 
 Plugin::Plugin(QObject *parent):
     AuthPluginInterface(parent),
-    impl(0)
+    impl(0),
+    m_networkAccessManager(new QNetworkAccessManager(this))
 {
     TRACE();
 }
@@ -79,6 +83,24 @@ void Plugin::process(const SignOn::SessionData &inData,
         emit error(Error(Error::MechanismNotAvailable));
         return;
     }
+
+    QNetworkProxy networkProxy = QNetworkProxy::applicationProxy();
+    // Override proxy, if given in the parameters
+    QString proxy = inData.NetworkProxy();
+    if (!proxy.isEmpty()) {
+        QUrl proxyUrl(proxy);
+        if (!proxyUrl.host().isEmpty()) {
+            networkProxy = QNetworkProxy(QNetworkProxy::HttpProxy,
+                                         proxyUrl.host(),
+                                         proxyUrl.port(),
+                                         proxyUrl.userName(),
+                                         proxyUrl.password());
+            TRACE() << proxyUrl.host() << ":" <<  proxyUrl.port();
+        }
+    }
+
+    m_networkAccessManager->setProxy(networkProxy);
+    impl->setNetworkAccessManager(m_networkAccessManager);
 
     // Forward the signals from the implementation
     connect(impl, SIGNAL(result(const SignOn::SessionData &)),

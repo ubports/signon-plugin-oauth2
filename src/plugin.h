@@ -31,6 +31,8 @@
 #include <SignOn/Error>
 
 class OAuth2PluginTest;
+class QNetworkAccessManager;
+
 namespace OAuth2PluginNS {
 
 class BasePlugin;
@@ -59,6 +61,7 @@ public Q_SLOTS:
 
 private:
     BasePlugin *impl;
+    QNetworkAccessManager *m_networkAccessManager;
 };
 
 } //namespace OAuth2PluginNS

@@ -33,6 +33,8 @@
 #include <SignOn/SessionData>
 #include <SignOn/UiSessionData>
 
+class QNetworkAccessManager;
+
 namespace OAuth2PluginNS {
 
 /*!
@@ -53,6 +55,9 @@ public:
                          const QString &mechanism) = 0;
     virtual void userActionFinished(const SignOn::UiSessionData &data) = 0;
     virtual void refresh(const SignOn::UiSessionData &data);
+
+    void setNetworkAccessManager(QNetworkAccessManager *nam);
+    QNetworkAccessManager *networkAccessManager() const;
 
 Q_SIGNALS:
     void result(const SignOn::SessionData &data);

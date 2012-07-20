@@ -42,16 +42,18 @@ namespace OAuth2PluginNS {
 class BasePluginPrivate
 {
 public:
-    BasePluginPrivate()
-    {
-    }
+    BasePluginPrivate();
+    ~BasePluginPrivate() {}
 
-    ~BasePluginPrivate()
-    {
-    }
+    QNetworkAccessManager *m_networkAccessManager;
 }; //Private
 
 } //namespace OAuth2PluginNS
+
+BasePluginPrivate::BasePluginPrivate():
+    m_networkAccessManager(0)
+{
+}
 
 BasePlugin::BasePlugin(QObject *parent):
     QObject(parent),
@@ -74,4 +76,16 @@ void BasePlugin::refresh(const SignOn::UiSessionData &data)
 {
     TRACE();
     emit refreshed(data);
+}
+
+void BasePlugin::setNetworkAccessManager(QNetworkAccessManager *nam)
+{
+    Q_D(BasePlugin);
+    d->m_networkAccessManager = nam;
+}
+
+QNetworkAccessManager *BasePlugin::networkAccessManager() const
+{
+    Q_D(const BasePlugin);
+    return d->m_networkAccessManager;
 }

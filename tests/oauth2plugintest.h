@@ -24,6 +24,7 @@
 #ifndef OAUTH2PLUGINTEST_H
 #define OAUTH2PLUGINTEST_H
 
+#include <QNetworkReply>
 #include <QString>
 #include "plugin.h"
 #include "SignOn/AuthPluginInterface"
