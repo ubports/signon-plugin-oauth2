@@ -22,7 +22,7 @@
  */
 
 #include <QUrl>
-#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QDateTime>
 #include <QCryptographicHash>
@@ -88,8 +88,7 @@ const QByteArray CONTENT_TEXT_HTML = QByteArray("text/html");
 class OAuth1PluginPrivate
 {
 public:
-    OAuth1PluginPrivate():
-        m_reply(0)
+    OAuth1PluginPrivate()
     {
         TRACE();
 
@@ -100,11 +99,8 @@ public:
     ~OAuth1PluginPrivate()
     {
         TRACE();
-        if (m_reply)
-            m_reply->deleteLater();
     }
 
-    QNetworkReply *m_reply;
     QString m_mechanism;
     OAuth1PluginData m_oauth1Data;
     QByteArray m_oauth1Token;
@@ -141,16 +137,6 @@ QStringList OAuth1Plugin::mechanisms()
     res.append(HMAC_SHA1);
     res.append(PLAINTEXT);
     return res;
-}
-
-void OAuth1Plugin::cancel()
-{
-    Q_D(OAuth1Plugin);
-
-    TRACE();
-    emit error(Error(Error::SessionCanceled));
-    if (d->m_reply)
-        d->m_reply->abort();
 }
 
 void OAuth1Plugin::sendOAuth1AuthRequest(const QString &captchaUrl)
@@ -501,18 +487,14 @@ void OAuth1Plugin::userActionFinished(const SignOn::UiSessionData &data)
 }
 
 // Method to handle responses for OAuth 1.0a Request token request
-void OAuth1Plugin::replyOAuth1RequestFinished()
+void OAuth1Plugin::serverReply(QNetworkReply *reply)
 {
     Q_D(OAuth1Plugin);
 
-    TRACE()<< "Finished signal received";
-    QNetworkReply *reply = (QNetworkReply*)sender();
     QByteArray replyContent = reply->readAll();
     TRACE() << replyContent;
     if (reply->error() != QNetworkReply::NoError) {
         d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
-        if (handleNetworkError(reply->error()))
-            return;
     }
 
     // Handle error responses
@@ -626,13 +608,7 @@ void OAuth1Plugin::handleOAuth1ProblemError(const QString &errorString)
 
 void OAuth1Plugin::handleOAuth1Error(const QByteArray &reply)
 {
-    Q_D(OAuth1Plugin);
-
     TRACE();
-    if (d->m_reply) {
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
     QMap<QString,QString> map = parseTextReply(reply);
     QString errorString = map[OAUTH_PROBLEM];
     if (!errorString.isEmpty()) {
@@ -642,49 +618,6 @@ void OAuth1Plugin::handleOAuth1Error(const QByteArray &reply)
 
     TRACE() << "Error Emitted";
     emit error(Error(Error::OperationFailed, errorString));
-}
-
-bool OAuth1Plugin::handleNetworkError(QNetworkReply::NetworkError err)
-{
-    Q_D(OAuth1Plugin);
-
-    TRACE() << "error signal received:" << err;
-    /* Has been handled by handleSslErrors already */
-    if (err == QNetworkReply::SslHandshakeFailedError) {
-        return true;
-    }
-    /* HTTP errors handled in slots attached to  signal */
-    if ((err > QNetworkReply::UnknownProxyError)
-        && (err <= QNetworkReply::UnknownContentError)) {
-        return false;
-    }
-    Error::ErrorType type = Error::Network;
-    if (err <= QNetworkReply::UnknownNetworkError)
-        type = Error::NoConnection;
-    QString errorString = "";
-    if (d->m_reply) {
-        errorString = d->m_reply->errorString();
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
-    emit error(Error(type, errorString));
-    return true;
-}
-
-void OAuth1Plugin::handleSslErrors(QList<QSslError> errorList)
-{
-    Q_D(OAuth1Plugin);
-
-    TRACE() << "Error: " << errorList;
-    QString errorString = "";
-    foreach (QSslError error, errorList) {
-        errorString += error.errorString() + ";";
-    }
-    if (d->m_reply) {
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
-    emit error(Error(Error::Ssl, errorString));
 }
 
 void OAuth1Plugin::sendOAuth1PostRequest()
@@ -711,13 +644,7 @@ void OAuth1Plugin::sendOAuth1PostRequest()
     }
     request.setRawHeader(QByteArray("Authorization"), authHeader.toAscii());
 
-    d->m_reply = networkAccessManager()->post(request, QByteArray());
-    connect(d->m_reply, SIGNAL(finished()),
-            this, SLOT(replyOAuth1RequestFinished()));
-    connect(d->m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
-            this, SLOT(handleNetworkError(QNetworkReply::NetworkError)));
-    connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),
-            this, SLOT(handleSslErrors(QList<QSslError>)));
+    postRequest(request, QByteArray());
 }
 
 const QMap<QString, QString> OAuth1Plugin::parseTextReply(const QByteArray &reply)

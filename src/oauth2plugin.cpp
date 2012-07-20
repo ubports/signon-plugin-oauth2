@@ -22,8 +22,8 @@
  */
 
 #include <QUrl>
-#include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QNetworkReply>
 #include <QDateTime>
 
 #include <qjson/parser.h>
@@ -72,8 +72,7 @@ const QByteArray CONTENT_TEXT_PLAIN = QByteArray("text/plain");
 class OAuth2PluginPrivate
 {
 public:
-    OAuth2PluginPrivate():
-        m_reply(0)
+    OAuth2PluginPrivate()
     {
         TRACE();
 
@@ -84,11 +83,8 @@ public:
     ~OAuth2PluginPrivate()
     {
         TRACE();
-        if (m_reply)
-            m_reply->deleteLater();
     }
 
-    QNetworkReply *m_reply;
     QString m_mechanism;
     OAuth2PluginData m_oauth2Data;
     QVariantMap m_tokens;
@@ -119,16 +115,6 @@ QStringList OAuth2Plugin::mechanisms()
     res.append(WEB_SERVER);
     res.append(USER_AGENT);
     return res;
-}
-
-void OAuth2Plugin::cancel()
-{
-    Q_D(OAuth2Plugin);
-
-    TRACE();
-    emit error(Error(Error::SessionCanceled));
-    if (d->m_reply)
-        d->m_reply->abort();
 }
 
 void OAuth2Plugin::sendOAuth2AuthRequest()
@@ -403,16 +389,10 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
 }
 
 // Method to handle responses for OAuth 2.0 requests
-void OAuth2Plugin::replyOAuth2RequestFinished()
+void OAuth2Plugin::serverReply(QNetworkReply *reply)
 {
-    TRACE()<< "Finished signal received";
-    QNetworkReply *reply = (QNetworkReply*)sender();
     QByteArray replyContent = reply->readAll();
     TRACE() << replyContent;
-    if (reply->error() != QNetworkReply::NoError) {
-        if (handleNetworkError(reply->error()))
-            return;
-    }
 
     // Handle error responses
     QVariant statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
@@ -483,13 +463,7 @@ void OAuth2Plugin::replyOAuth2RequestFinished()
 
 void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
 {
-    Q_D(OAuth2Plugin);
-
     TRACE();
-    if (d->m_reply) {
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
     QVariantMap map = parseJSONReply(reply);
     QByteArray errorString = map["error"].toByteArray();
     if (!errorString.isEmpty()) {
@@ -536,49 +510,6 @@ void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
     emit error(Error(Error::OperationFailed, errorString));
 }
 
-bool OAuth2Plugin::handleNetworkError(QNetworkReply::NetworkError err)
-{
-    Q_D(OAuth2Plugin);
-
-    TRACE() << "error signal received:" << err;
-    /* Has been handled by handleSslErrors already */
-    if (err == QNetworkReply::SslHandshakeFailedError) {
-        return true;
-    }
-    /* HTTP errors handled in slots attached to  signal */
-    if ((err > QNetworkReply::UnknownProxyError)
-        && (err <= QNetworkReply::UnknownContentError)) {
-        return false;
-    }
-    Error::ErrorType type = Error::Network;
-    if (err <= QNetworkReply::UnknownNetworkError)
-        type = Error::NoConnection;
-    QString errorString = "";
-    if (d->m_reply) {
-        errorString = d->m_reply->errorString();
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
-    emit error(Error(type, errorString));
-    return true;
-}
-
-void OAuth2Plugin::handleSslErrors(QList<QSslError> errorList)
-{
-    Q_D(OAuth2Plugin);
-
-    TRACE() << "Error: " << errorList;
-    QString errorString = "";
-    foreach (QSslError error, errorList) {
-        errorString += error.errorString() + ";";
-    }
-    if (d->m_reply) {
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
-    emit error(Error(Error::Ssl, errorString));
-}
-
 void OAuth2Plugin::refreshOAuth2Token(const QString &refreshToken)
 {
     Q_D(OAuth2Plugin);
@@ -604,13 +535,7 @@ void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData)
     request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
 
     TRACE() << "Query string = " << postData;
-    d->m_reply = networkAccessManager()->post(request, postData);
-    connect(d->m_reply, SIGNAL(finished()),
-            this, SLOT(replyOAuth2RequestFinished()));
-    connect(d->m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
-            this, SLOT(handleNetworkError(QNetworkReply::NetworkError)));
-    connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),
-            this, SLOT(handleSslErrors(QList<QSslError>)));
+    postRequest(request, postData);
 }
 
 void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)

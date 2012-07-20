@@ -59,6 +59,17 @@ public:
     void setNetworkAccessManager(QNetworkAccessManager *nam);
     QNetworkAccessManager *networkAccessManager() const;
 
+protected:
+    void postRequest(const QNetworkRequest &request,
+                     const QByteArray &data);
+
+    virtual void serverReply(QNetworkReply *reply);
+
+protected Q_SLOTS:
+    void onPostFinished();
+    virtual bool handleNetworkError(QNetworkReply::NetworkError err);
+    virtual void handleSslErrors(QList<QSslError> errorList);
+
 Q_SIGNALS:
     void result(const SignOn::SessionData &data);
     void store(const SignOn::SessionData &data);

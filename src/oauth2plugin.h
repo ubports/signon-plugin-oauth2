@@ -25,8 +25,6 @@
 #define SIGNON_PLUGIN_OAUTH2
 
 #include <QtCore>
-#include <QSslError>
-#include <QNetworkReply>
 
 #include <SignOn/AuthPluginInterface>
 #include <SignOn/SessionData>
@@ -52,14 +50,11 @@ public:
 
     static QStringList mechanisms();
 
-    void cancel();
     void process(const SignOn::SessionData &inData, const QString &mechanism);
     void userActionFinished(const SignOn::UiSessionData &data);
 
-private Q_SLOTS:
-    void replyOAuth2RequestFinished();
-    bool handleNetworkError(QNetworkReply::NetworkError err);
-    void handleSslErrors(QList<QSslError> errorList);
+protected:
+    void serverReply(QNetworkReply *);
 
 private:
     void sendOAuth2AuthRequest();

@@ -25,8 +25,6 @@
 #define SIGNON_PLUGIN_OAUTH1
 
 #include <QtCore>
-#include <QSslError>
-#include <QNetworkReply>
 
 #include "base-plugin.h"
 #include "oauth1data.h"
@@ -48,14 +46,11 @@ public:
 
     static QStringList mechanisms();
 
-    void cancel();
     void process(const SignOn::SessionData &inData, const QString &mechanism = 0);
     void userActionFinished(const SignOn::UiSessionData &data);
 
-private Q_SLOTS:
-    void replyOAuth1RequestFinished();
-    bool handleNetworkError(QNetworkReply::NetworkError err);
-    void handleSslErrors(QList<QSslError> errorList);
+protected:
+    void serverReply(QNetworkReply *reply);
 
 private:
     void sendOAuth1AuthRequest(const QString &captchaUrl = 0);
