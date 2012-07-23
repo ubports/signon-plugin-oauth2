@@ -72,7 +72,8 @@ const QByteArray CONTENT_TEXT_PLAIN = QByteArray("text/plain");
 class OAuth2PluginPrivate
 {
 public:
-    OAuth2PluginPrivate()
+    OAuth2PluginPrivate():
+        m_grantType(GrantType::Undefined)
     {
         TRACE();
 
@@ -91,6 +92,7 @@ public:
     QString m_key;
     QString m_username;
     QString m_password;
+    GrantType::e m_grantType;
 }; //Private
 
 } //namespace OAuth2PluginNS
@@ -358,7 +360,8 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
             newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
             newUrl.addQueryItem(AUTH_CODE, code);
             newUrl.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
-            sendOAuth2PostRequest(newUrl.encodedQuery());
+            sendOAuth2PostRequest(newUrl.encodedQuery(),
+                                  GrantType::AuthorizationCode);
         }
         else if (url.hasQueryItem(USERNAME) && url.hasQueryItem(PASSWORD)) {
             QString username = url.queryItemValue(USERNAME);
@@ -368,7 +371,8 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
             newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
             newUrl.addQueryItem(USERNAME, username);
             newUrl.addQueryItem(PASSWORD, password);
-            sendOAuth2PostRequest(newUrl.encodedQuery());
+            sendOAuth2PostRequest(newUrl.encodedQuery(),
+                                  GrantType::UserBasic);
         }
         else if (url.hasQueryItem(ASSERTION_TYPE) && url.hasQueryItem(ASSERTION)) {
             QString assertion_type = url.queryItemValue(ASSERTION_TYPE);
@@ -378,7 +382,8 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
             newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
             newUrl.addQueryItem(ASSERTION_TYPE, assertion_type);
             newUrl.addQueryItem(ASSERTION, assertion);
-            sendOAuth2PostRequest(newUrl.encodedQuery());
+            sendOAuth2PostRequest(newUrl.encodedQuery(),
+                                  GrantType::Assertion);
         }
         else if (url.hasQueryItem(REFRESH_TOKEN)) {
             QString refresh_token = url.queryItemValue(REFRESH_TOKEN);
@@ -465,6 +470,8 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
 
 void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
 {
+    Q_D(OAuth2Plugin);
+
     TRACE();
     QVariantMap map = parseJSONReply(reply);
     QByteArray errorString = map["error"].toByteArray();
@@ -500,6 +507,16 @@ void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
         else if (errorString == QByteArray("invalid_user_credentials")) {
             type = Error::InvalidCredentials;
         }
+        else if (errorString == QByteArray("invalid_grant")) {
+            if (d->m_grantType == GrantType::RefreshToken) {
+                /* The refresh token has expired; try once more using
+                 * the web-based authentication flow. */
+                TRACE() << "Authenticating without refresh token";
+                sendOAuth2AuthRequest();
+                return;
+            }
+            type = Error::NotAuthorized;
+        }
         TRACE() << "Error Emitted";
         emit error(Error(type, errorString));
         return;
@@ -524,10 +541,11 @@ void OAuth2Plugin::refreshOAuth2Token(const QString &refreshToken)
         url.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
     }
     url.addQueryItem(REFRESH_TOKEN, refreshToken);
-    sendOAuth2PostRequest(url.encodedQuery());
+    sendOAuth2PostRequest(url.encodedQuery(), GrantType::RefreshToken);
 }
 
-void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData)
+void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData,
+                                         GrantType::e grantType)
 {
     Q_D(OAuth2Plugin);
 
@@ -537,6 +555,8 @@ void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData)
              .arg(d->m_oauth2Data.TokenPath()));
     QNetworkRequest request(url);
     request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
+
+    d->m_grantType = grantType;
 
     TRACE() << "Query string = " << postData;
     postRequest(request, postData);
