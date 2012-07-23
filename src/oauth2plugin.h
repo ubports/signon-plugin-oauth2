@@ -35,6 +35,16 @@
 
 namespace OAuth2PluginNS {
 
+namespace GrantType {
+    enum e {
+        Undefined = 0,
+        RefreshToken,
+        UserBasic,
+        Assertion,
+        AuthorizationCode,
+    };
+};
+
 /*!
  * @class OAuth2Plugin
  * OAuth 2.0 authentication plugin.
@@ -62,7 +72,8 @@ private:
     bool respondWithStoredToken(const QVariantMap &token,
                                 const QString &mechanism);
     void refreshOAuth2Token(const QString &refreshToken);
-    void sendOAuth2PostRequest(const QByteArray &postData);
+    void sendOAuth2PostRequest(const QByteArray &postData,
+                               GrantType::e grantType);
     void storeResponse(const OAuth2PluginTokenData &response);
     const QVariantMap parseJSONReply(const QByteArray &reply);
     const QMap<QString, QString> parseTextReply(const QByteArray &reply);
