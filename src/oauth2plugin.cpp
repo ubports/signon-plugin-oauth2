@@ -224,8 +224,6 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
 {
     Q_D(OAuth2Plugin);
 
-    OAuth2PluginData input;
-
     if ((!mechanism.isEmpty()) && (!mechanisms().contains(mechanism))) {
         emit error(Error(Error::MechanismNotAvailable));
         return;
@@ -269,7 +267,7 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
     d->m_password = inData.Secret();
 
     if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
-        d->m_oauth2Data = inData.data<OAuth2PluginData>();
+        d->m_oauth2Data = data;
         if (mechanism == WEB_SERVER &&
             storedData.contains(REFRESH_TOKEN) &&
             !storedData[REFRESH_TOKEN].toString().isEmpty()) {
