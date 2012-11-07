@@ -21,6 +21,11 @@
  * 02110-1301 USA
  */
 
+#include "common.h"
+
+#include "base-plugin.h"
+#include "oauth2tokendata.h"
+
 #include <QUrl>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
@@ -29,10 +34,6 @@
 #include <QCryptographicHash>
 
 #include <qjson/parser.h>
-
-#include "base-plugin.h"
-#include "common.h"
-#include "oauth2tokendata.h"
 
 using namespace SignOn;
 using namespace OAuth2PluginNS;

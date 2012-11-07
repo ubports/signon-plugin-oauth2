@@ -22,13 +22,13 @@
 
 #include "oauthclient.h"
 
-#include <QApplication>
+#include <QCoreApplication>
 
 using namespace SignOn;
 
 int main(int argc, char *argv[])
 {
-    QApplication app(argc, argv);
+    QCoreApplication app(argc, argv);
 
     OAuthClient client("213156715390803",
                        "bf89c2d9de5e929fe5c5921e9a1f2924");
