@@ -29,4 +29,6 @@
 #endif
 #define TRACE() qDebug() << __FILE__ << __LINE__ << __func__ << ":"
 
+#define QT_DISABLE_DEPRECATED_BEFORE QT_VERSION_CHECK(4, 0, 0)
+
 #endif // SIGNON_PLUGIN_OAUTH2_COMMON
