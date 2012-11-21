@@ -30,7 +30,13 @@
 #include <QNetworkReply>
 #include <QDateTime>
 
+#define USE_LIBQJSON (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
+
+#if USE_LIBQJSON
 #include <qjson/parser.h>
+#else
+#include <QJsonDocument>
+#endif
 
 using namespace SignOn;
 using namespace OAuth2PluginNS;
@@ -579,9 +585,15 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
 const QVariantMap OAuth2Plugin::parseJSONReply(const QByteArray &reply)
 {
     TRACE();
+    bool ok = false;
+#if USE_LIBQJSON
     QJson::Parser parser;
-    bool ok;
     QVariant tree = parser.parse(reply, &ok);
+#else
+    QJsonDocument doc = QJsonDocument::fromJson(reply);
+    ok = !doc.isEmpty();
+    QVariant tree = doc.toVariant();
+#endif
     if (ok) {
         return tree.toMap();
     }

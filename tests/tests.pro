@@ -2,8 +2,11 @@ include( ../common-project-config.pri )
 include( ../common-vars.pri )
 TARGET = signon-oauth2plugin-tests
 QT += core \
-    network
-CONFIG += qtestlib \
+    network \
+    testlib
+QT -= gui
+
+CONFIG += \
     link_pkgconfig
 SOURCES += \
     $${TOP_SRC_DIR}/src/base-plugin.cpp \
@@ -21,8 +24,12 @@ INCLUDEPATH += . \
     $${TOP_SRC_DIR}/src \
     /usr/include/signon-qt
 PKGCONFIG += libsignon-qt \
-    signon-plugins \
-    QJson
+    signon-plugins
+
+lessThan(QT_MAJOR_VERSION, 5) {
+    PKGCONFIG += QJson
+}
+
 target.path = /usr/bin
 testsuite.path = /usr/share/$$TARGET
 testsuite.files = tests.xml
