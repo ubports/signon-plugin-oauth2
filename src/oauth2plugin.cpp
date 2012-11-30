@@ -573,7 +573,26 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
     OAuth2TokenData tokens;
     QVariantMap token;
     token.insert(TOKEN, response.AccessToken());
-    token.insert(REFRESH_TOKEN, response.RefreshToken());
+    /* Do not overwrite the refresh token with an empty one: when using the
+     * refresh token to obtain a new access token, the replie could not contain
+     * a refresh token (or contain an empty one).
+     * In such cases, we should re-store the old refresh token.
+     */
+    QString refreshToken;
+    if (response.RefreshToken().isEmpty()) {
+        QVariant tokenVar = d->m_tokens.value(d->m_key);
+        QVariantMap storedData;
+        if (tokenVar.canConvert<QVariantMap>()) {
+            storedData = tokenVar.value<QVariantMap>();
+            if (storedData.contains(REFRESH_TOKEN) &&
+                !storedData[REFRESH_TOKEN].toString().isEmpty()) {
+                refreshToken = storedData[REFRESH_TOKEN].toString();
+            }
+        }
+    } else {
+        refreshToken = response.RefreshToken();
+    }
+    token.insert(REFRESH_TOKEN, refreshToken);
     token.insert(EXPIRY, response.ExpiresIn());
     token.insert(TIMESTAMP, QDateTime::currentDateTime().toTime_t());
     d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
