@@ -439,8 +439,9 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
             }
         }
         // Added to test with facebook Graph API's (handling text/plain content type)
-        else if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN)){
-            TRACE()<< "text/plain content received";
+        else if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN) ||
+                 reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_URLENCODED)) {
+            TRACE()<< reply->rawHeader(CONTENT_TYPE) << "content received";
             QMap<QString,QString> map = parseTextReply(replyContent);
             QByteArray accessToken = map["access_token"].toAscii();
             QByteArray expiresIn = map["expires"].toAscii();
