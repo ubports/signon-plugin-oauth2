@@ -30,8 +30,7 @@ INSTALLS += target \
     testsuite
 
 check.depends = $$TARGET
-check.commands = ./$$TARGET || :
+check.commands = xvfb-run dbus-test-runner -t ./$$TARGET
 QMAKE_EXTRA_TARGETS += check
 
 QMAKE_CLEAN += $$TARGET
-

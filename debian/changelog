@@ -1,0 +1,96 @@
+signon-plugin-oauth2 (0.14bzr13.01.21-0ubuntu1) UNRELEASED; urgency=low
+
+  * Inline packaging metadata.
+
+ -- Robert Bruce Park <robert.park@canonical.com>  Mon, 21 Jan 2013 16:16:51 -0800
+
+signon-plugin-oauth2 (0.14-0ubuntu1) raring; urgency=low
+
+  * New upstream release.
+    - Don't lose refresh token after first usage (LP: #1029289)
+    - Support application/x-www-form-urlencoded replies,
+      needed by github.com
+  * -debian/patches/no_debug.patch
+    - The next release of signond will control the amount of logging
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Fri, 07 Dec 2012 13:52:06 -0500
+
+signon-plugin-oauth2 (0.12-0ubuntu1) raring; urgency=low
+
+  * New upstream release.
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Fri, 09 Nov 2012 10:32:52 -0500
+
+signon-plugin-oauth2 (0.11-0ubuntu3) quantal; urgency=low
+
+  * debian/patches/no_debug.patch
+    - Don't log debug info (LP: #1049949)
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Wed, 12 Sep 2012 14:15:44 -0400
+
+signon-plugin-oauth2 (0.11-0ubuntu2) quantal; urgency=low
+
+  * debian/control
+    - Dropped build depends for libqtwebkit-dev, it is no longer needed
+    - Updated maintainer
+  * debian/compat
+    - debhelper 9
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Mon, 06 Aug 2012 16:46:06 -0400
+
+signon-plugin-oauth2 (0.11-0ubuntu1) quantal; urgency=low
+
+  * New upstream release
+  * debian/patches/run_tests.patch
+    - use xvfb-run and dbus-test-runner for tests and fail the build if
+      the tests fail
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Thu, 02 Aug 2012 15:26:30 -0400
+
+signon-plugin-oauth2 (0.10+bzr41-0quantal1) quantal; urgency=low
+
+  * New snapshot from tag 0.10-bzr41
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Fri, 20 Jul 2012 10:20:18 -0400
+
+signon-plugin-oauth2 (0.10+bzr39-0quantal1) quantal; urgency=low
+
+  * rebuild for quantal
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Mon, 16 Jul 2012 10:19:46 -0400
+
+signon-plugin-oauth2 (0.10+bzr39-0precise2) precise; urgency=low
+
+  * no change rebuild
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Fri, 15 Jun 2012 16:52:11 -0400
+
+signon-plugin-oauth2 (0.10+bzr39-0precise1) precise; urgency=low
+
+  * New snapshot from tag 0.10-bzr39
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Thu, 14 Jun 2012 15:10:17 -0400
+
+signon-plugin-oauth2 (0.10+bzr37-0precise2) precise; urgency=low
+
+  * Rebased on trunk to pick up missing changes
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Fri, 30 Mar 2012 11:47:59 -0400
+
+signon-plugin-oauth2 (0.10+bzr37-0precise1) precise; urgency=low
+
+  * New snapshot from tag 0.10-bzr37
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Tue, 20 Mar 2012 10:57:41 -0400
+
+signon-plugin-oauth2 (0.10+bzr36-0precise1) precise; urgency=low
+
+  * New snapshot from tag 0.10-bzr36
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Fri, 16 Mar 2012 15:57:26 -0400
+
+signon-plugin-oauth2 (0.10-0precise1) precise; urgency=low
+
+  * Initial release
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Fri, 06 Jan 2012 09:20:07 -0500

@@ -1,0 +1,48 @@
+Source: signon-plugin-oauth2
+Section: libs
+Priority: optional
+Maintainer: Ubuntu Desktop Team <ubuntu-desktop@lists.ubuntu.com>
+Build-Depends: dbus-test-runner,
+               debhelper (>= 9),
+               gdb,
+               libqjson-dev,
+               libsignon-qt-dev,
+               pkg-config,
+               signon-plugins-dev,
+               xvfb,
+Standards-Version: 3.9.3
+Homepage: http://code.google.com/p/accounts-sso/
+# If you aren't a member of ~online-accounts but need to upload packaging changes,
+# just go ahead.  ~online-accounts will notice and sync up the code again.
+Vcs-Bzr: https://code.launchpad.net/~online-accounts/signon-plugin-oauth2/trunk
+
+Package: signon-plugin-oauth2
+Architecture: any
+Section: libs
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         signon-ui
+Description: Single Signon oauth2 plugin
+ Oauth2 plugin for the Single Signon framework
+
+Package: signon-plugin-oauth2-tests
+Architecture: any
+Section: libs
+Depends: signon-plugin-oauth2 (= ${binary:Version}),
+         ${shlibs:Depends},
+         ${misc:Depends}
+Description: Single Signon oauth2 plugin
+ Oauth2 plugin for the Single Signon framework - test files
+ .
+ This package contains file that are needed to test the plugin.
+
+Package: signon-plugin-oauth2-dev
+Architecture: any
+Section: libdevel
+Depends: signon-plugin-oauth2 (= ${binary:Version}),
+         ${shlibs:Depends},
+         ${misc:Depends}
+Description: Single Signon oauth2 plugin
+ Oauth2 plugin for the Single Signon framework - development files
+ .
+ This package contains files that are needed to build applications.
