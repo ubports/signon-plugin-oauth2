@@ -12,5 +12,8 @@ override_dh_install:
 	rm -f debian/tmp/etc/signon-ui/webkit-options.d/*
 	dh_install --fail-missing
 
+overrde_dh_auto_tests:
+	xfvb-run dbus-test-runner -t dh_auto_tests
+
 %:
 	dh $@

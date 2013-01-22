@@ -21,7 +21,7 @@ Architecture: any
 Section: libs
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         signon-ui
+         signon-ui,
 Description: Single Signon oauth2 plugin
  Oauth2 plugin for the Single Signon framework
 
@@ -30,7 +30,7 @@ Architecture: any
 Section: libs
 Depends: signon-plugin-oauth2 (= ${binary:Version}),
          ${shlibs:Depends},
-         ${misc:Depends}
+         ${misc:Depends},
 Description: Single Signon oauth2 plugin
  Oauth2 plugin for the Single Signon framework - test files
  .
@@ -41,7 +41,7 @@ Architecture: any
 Section: libdevel
 Depends: signon-plugin-oauth2 (= ${binary:Version}),
          ${shlibs:Depends},
-         ${misc:Depends}
+         ${misc:Depends},
 Description: Single Signon oauth2 plugin
  Oauth2 plugin for the Single Signon framework - development files
  .
