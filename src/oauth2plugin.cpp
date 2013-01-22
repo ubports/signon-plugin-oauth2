@@ -47,7 +47,8 @@ const QString WEB_SERVER = QString("web_server");
 const QString USER_AGENT = QString("user_agent");
 
 const QString TOKEN = QString("Token");
-const QString EXPIRY = QString ("Expiry");
+const QString EXPIRY = QString("Expiry");
+const QString SCOPES = QString("Scopes");
 
 const int HTTP_STATUS_OK = 200;
 const QString AUTH_CODE = QString("code");
@@ -192,10 +193,8 @@ bool OAuth2Plugin::validateInput(const SignOn::SessionData &inData,
 }
 
 bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
-                                          const QString &mechanism)
+                                          const QStringList &scopes)
 {
-    Q_UNUSED(mechanism);
-
     int timeToExpiry = 0;
     // if the token is expired, ignore it
     if (token.contains(EXPIRY)) {
@@ -209,6 +208,15 @@ bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
         }
     }
 
+    /* if the stored token does not contain all the requested scopes,
+     * we cannot use it now */
+    if (!scopes.isEmpty()) {
+        if (!token.contains(SCOPES)) return false;
+        QSet<QString> cachedScopes =
+            token.value(SCOPES).toStringList().toSet();
+        if (!cachedScopes.contains(scopes.toSet())) return false;
+    }
+
     if (token.contains(TOKEN)) {
         OAuth2PluginTokenData response;
         response.setAccessToken(token.value(TOKEN).toByteArray());
@@ -218,6 +226,7 @@ bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
         if (token.contains(EXPIRY)) {
             response.setExpiresIn(timeToExpiry);
         }
+        TRACE() << "Responding with stored token";
         emit result(response);
         return true;
     }
@@ -262,7 +271,7 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
     QVariantMap storedData;
     if (tokenVar.canConvert<QVariantMap>()) {
         storedData = tokenVar.value<QVariantMap>();
-        if (respondWithStoredToken(storedData, mechanism)) {
+        if (respondWithStoredToken(storedData, data.Scope())) {
             return;
         }
     }
@@ -596,6 +605,7 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
     token.insert(REFRESH_TOKEN, refreshToken);
     token.insert(EXPIRY, response.ExpiresIn());
     token.insert(TIMESTAMP, QDateTime::currentDateTime().toTime_t());
+    token.insert(SCOPES, d->m_oauth2Data.Scope());
     d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
     tokens.setTokens(d->m_tokens);
     Q_EMIT store(tokens);
