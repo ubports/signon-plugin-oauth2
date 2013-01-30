@@ -1,0 +1,3 @@
+usr/share/signon-oauth2plugin-tests/*
+usr/bin/oauthclient
+usr/bin/signon-oauth2plugin-tests

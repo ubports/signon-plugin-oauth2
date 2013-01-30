@@ -34,4 +34,3 @@ check.commands = ./$$TARGET || :
 QMAKE_EXTRA_TARGETS += check
 
 QMAKE_CLEAN += $$TARGET
-
