@@ -9,6 +9,7 @@ INCLUDEPATH += . \
 CONFIG += \
     debug \
     link_pkgconfig
+QT -= gui
 
 PKGCONFIG += libsignon-qt
 

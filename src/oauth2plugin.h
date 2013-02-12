@@ -70,7 +70,7 @@ private:
     void sendOAuth2AuthRequest();
     bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
     bool respondWithStoredToken(const QVariantMap &token,
-                                const QString &mechanism);
+                                const QStringList &scopes);
     void refreshOAuth2Token(const QString &refreshToken);
     void sendOAuth2PostRequest(const QByteArray &postData,
                                GrantType::e grantType);

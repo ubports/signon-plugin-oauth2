@@ -30,7 +30,13 @@
 #include <QNetworkReply>
 #include <QDateTime>
 
+#define USE_LIBQJSON (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
+
+#if USE_LIBQJSON
 #include <qjson/parser.h>
+#else
+#include <QJsonDocument>
+#endif
 
 using namespace SignOn;
 using namespace OAuth2PluginNS;
@@ -41,7 +47,8 @@ const QString WEB_SERVER = QString("web_server");
 const QString USER_AGENT = QString("user_agent");
 
 const QString TOKEN = QString("Token");
-const QString EXPIRY = QString ("Expiry");
+const QString EXPIRY = QString("Expiry");
+const QString SCOPES = QString("Scopes");
 
 const int HTTP_STATUS_OK = 200;
 const QString AUTH_CODE = QString("code");
@@ -186,10 +193,8 @@ bool OAuth2Plugin::validateInput(const SignOn::SessionData &inData,
 }
 
 bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
-                                          const QString &mechanism)
+                                          const QStringList &scopes)
 {
-    Q_UNUSED(mechanism);
-
     int timeToExpiry = 0;
     // if the token is expired, ignore it
     if (token.contains(EXPIRY)) {
@@ -203,6 +208,15 @@ bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
         }
     }
 
+    /* if the stored token does not contain all the requested scopes,
+     * we cannot use it now */
+    if (!scopes.isEmpty()) {
+        if (!token.contains(SCOPES)) return false;
+        QSet<QString> cachedScopes =
+            token.value(SCOPES).toStringList().toSet();
+        if (!cachedScopes.contains(scopes.toSet())) return false;
+    }
+
     if (token.contains(TOKEN)) {
         OAuth2PluginTokenData response;
         response.setAccessToken(token.value(TOKEN).toByteArray());
@@ -212,6 +226,7 @@ bool OAuth2Plugin::respondWithStoredToken(const QVariantMap &token,
         if (token.contains(EXPIRY)) {
             response.setExpiresIn(timeToExpiry);
         }
+        TRACE() << "Responding with stored token";
         emit result(response);
         return true;
     }
@@ -256,7 +271,7 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
     QVariantMap storedData;
     if (tokenVar.canConvert<QVariantMap>()) {
         storedData = tokenVar.value<QVariantMap>();
-        if (respondWithStoredToken(storedData, mechanism)) {
+        if (respondWithStoredToken(storedData, data.Scope())) {
             return;
         }
     }
@@ -433,8 +448,9 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
             }
         }
         // Added to test with facebook Graph API's (handling text/plain content type)
-        else if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN)){
-            TRACE()<< "text/plain content received";
+        else if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN) ||
+                 reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_URLENCODED)) {
+            TRACE()<< reply->rawHeader(CONTENT_TYPE) << "content received";
             QMap<QString,QString> map = parseTextReply(replyContent);
             QByteArray accessToken = map["access_token"].toAscii();
             QByteArray expiresIn = map["expires"].toAscii();
@@ -567,9 +583,29 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
     OAuth2TokenData tokens;
     QVariantMap token;
     token.insert(TOKEN, response.AccessToken());
-    token.insert(REFRESH_TOKEN, response.RefreshToken());
+    /* Do not overwrite the refresh token with an empty one: when using the
+     * refresh token to obtain a new access token, the replie could not contain
+     * a refresh token (or contain an empty one).
+     * In such cases, we should re-store the old refresh token.
+     */
+    QString refreshToken;
+    if (response.RefreshToken().isEmpty()) {
+        QVariant tokenVar = d->m_tokens.value(d->m_key);
+        QVariantMap storedData;
+        if (tokenVar.canConvert<QVariantMap>()) {
+            storedData = tokenVar.value<QVariantMap>();
+            if (storedData.contains(REFRESH_TOKEN) &&
+                !storedData[REFRESH_TOKEN].toString().isEmpty()) {
+                refreshToken = storedData[REFRESH_TOKEN].toString();
+            }
+        }
+    } else {
+        refreshToken = response.RefreshToken();
+    }
+    token.insert(REFRESH_TOKEN, refreshToken);
     token.insert(EXPIRY, response.ExpiresIn());
     token.insert(TIMESTAMP, QDateTime::currentDateTime().toTime_t());
+    token.insert(SCOPES, d->m_oauth2Data.Scope());
     d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
     tokens.setTokens(d->m_tokens);
     Q_EMIT store(tokens);
@@ -579,9 +615,15 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
 const QVariantMap OAuth2Plugin::parseJSONReply(const QByteArray &reply)
 {
     TRACE();
+    bool ok = false;
+#if USE_LIBQJSON
     QJson::Parser parser;
-    bool ok;
     QVariant tree = parser.parse(reply, &ok);
+#else
+    QJsonDocument doc = QJsonDocument::fromJson(reply);
+    ok = !doc.isEmpty();
+    QVariant tree = doc.toVariant();
+#endif
     if (ok) {
         return tree.toMap();
     }
