@@ -23,11 +23,16 @@ HEADERS += \
 INCLUDEPATH += . \
     $${TOP_SRC_DIR}/src \
     /usr/include/signon-qt
-PKGCONFIG += libsignon-qt \
+PKGCONFIG += \
     signon-plugins
 
 lessThan(QT_MAJOR_VERSION, 5) {
-    PKGCONFIG += QJson
+    PKGCONFIG += \
+        QJson \
+        libsignon-qt
+} else {
+    PKGCONFIG += \
+        libsignon-qt5
 }
 
 target.path = /usr/bin

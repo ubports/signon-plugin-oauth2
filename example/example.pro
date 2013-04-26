@@ -11,7 +11,11 @@ CONFIG += \
     link_pkgconfig
 QT -= gui
 
-PKGCONFIG += libsignon-qt
+lessThan(QT_MAJOR_VERSION, 5) {
+    PKGCONFIG += libsignon-qt
+} else {
+    PKGCONFIG += libsignon-qt5
+}
 
 HEADERS += \
     oauthclient.h
