@@ -26,11 +26,16 @@ SOURCES += \
     oauth1plugin.cpp \
     oauth2plugin.cpp \
     plugin.cpp
-PKGCONFIG += libsignon-qt \
+PKGCONFIG += \
     signon-plugins
 
 lessThan(QT_MAJOR_VERSION, 5) {
-    PKGCONFIG += QJson
+    PKGCONFIG += \
+        QJson \
+        libsignon-qt
+} else {
+    PKGCONFIG += \
+        libsignon-qt5
 }
 
 headers.files = $$public_headers

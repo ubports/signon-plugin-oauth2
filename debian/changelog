@@ -1,3 +1,10 @@
+signon-plugin-oauth2 (0.16-0ubuntu1) UNRELEASED; urgency=low
+
+  * New upstream release.
+    - Use libsignon-qt5 when building for Qt5
+
+ -- Alberto Mardegan <alberto.mardegan@canonical.com>  Fri, 26 Apr 2013 12:27:42 +0300
+
 signon-plugin-oauth2 (0.15-0ubuntu1) raring; urgency=low
 
   * New upstream release.

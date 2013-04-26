@@ -5,12 +5,13 @@ Maintainer: Ubuntu Desktop Team <ubuntu-desktop@lists.ubuntu.com>
 Build-Depends: dbus-test-runner,
                debhelper (>= 9),
                gdb,
-               libqjson-dev,
-               libsignon-qt-dev,
+               libqt5xmlpatterns5-dev,
+               libsignon-qt5-dev,
                pkg-config,
-               signon-plugins-dev,
+               qt5-default,
+               signon-plugins-dev (>= 8.50-0ubuntu1),
                xvfb,
-Standards-Version: 3.9.3
+Standards-Version: 3.9.4
 Homepage: http://code.google.com/p/accounts-sso/
 # If you aren't a member of ~online-accounts but need to upload packaging changes,
 # just go ahead.  ~online-accounts will notice and sync up the code again.

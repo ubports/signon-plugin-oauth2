@@ -3,7 +3,6 @@
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
-export QT_SELECT=QT4
 export DPKG_GENSYMBOLS_CHECK_LEVEL=4
 
 override_dh_auto_configure:
