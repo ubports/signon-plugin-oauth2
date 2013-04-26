@@ -33,8 +33,6 @@
 #include <QDateTime>
 #include <QCryptographicHash>
 
-#include <qjson/parser.h>
-
 using namespace SignOn;
 using namespace OAuth2PluginNS;
 

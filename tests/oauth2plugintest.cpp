@@ -25,6 +25,7 @@
 
 #include "plugin.h"
 #include "oauth2data.h"
+#include "oauth2tokendata.h"
 
 #include "oauth2plugintest.h"
 
@@ -202,6 +203,7 @@ void OAuth2PluginTest::testPluginProcess()
     webServerData.setClientId("104660106251471");
     webServerData.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
     webServerData.setRedirectUri("http://localhost/connect/login_success.html");
+    webServerData.setScope(QStringList() << "scope1" << "scope2");
 
     //try without params
     m_testPlugin->process(webServerData, QString("web_server"));
@@ -243,6 +245,28 @@ void OAuth2PluginTest::testPluginProcess()
     tokens.insert( webServerData.ClientId(), QVariant::fromValue(token));
     webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
 
+    /* try with missing cached scopes */
+    m_testPlugin->process(webServerData, QString("web_server"));
+    m_loop.exec();
+    resp = m_response.data<OAuth2PluginTokenData>();
+    QVERIFY(resp.AccessToken() != QLatin1String("tokenfromtest"));
+    QCOMPARE(m_error.type(), int(Error::MissingData));
+
+    /* try with incomplete cached scopes */
+    token.insert("Scopes", QStringList("scope2"));
+    tokens.insert(webServerData.ClientId(), QVariant::fromValue(token));
+    webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
+    m_testPlugin->process(webServerData, QString("web_server"));
+    m_loop.exec();
+    resp = m_response.data<OAuth2PluginTokenData>();
+    QVERIFY(resp.AccessToken() != QLatin1String("tokenfromtest"));
+    QCOMPARE(m_error.type(), int(Error::MissingData));
+
+    /* try with sufficient cached scopes */
+    token.insert("Scopes",
+                 QStringList() << "scope1" << "scope3" << "scope2");
+    tokens.insert(webServerData.ClientId(), QVariant::fromValue(token));
+    webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
     m_testPlugin->process(webServerData, QString("web_server"));
     m_loop.exec();
     resp = m_response.data<OAuth2PluginTokenData>();
@@ -264,6 +288,8 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     data.setClientId("104660106251471");
     data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
     data.setRedirectUri("http://localhost/connect/login_success.html");
+    QStringList scopes = QStringList() << "scope1" << "scope2";
+    data.setScope(scopes);
 
     QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
                   this,  SLOT(result(const SignOn::SessionData&)),Qt::QueuedConnection);
@@ -271,6 +297,9 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
                   this,  SLOT(pluginError(const SignOn::Error &)),Qt::QueuedConnection);
     QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
                   this,  SLOT(uiRequest(const SignOn::UiSessionData&)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(store(const SignOn::SessionData&)),
+                     this,  SLOT(store(const SignOn::SessionData&)),
+                     Qt::QueuedConnection);
     QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
 
     m_testPlugin->process(data, QString("user_agent"));
@@ -302,6 +331,11 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     OAuth2PluginTokenData *result = (OAuth2PluginTokenData*)&m_response;
     QCOMPARE(result->AccessToken(), QString("testtoken."));
     QCOMPARE(result->ExpiresIn(), 4776);
+    QVariantMap storedTokenData = m_stored.data<OAuth2TokenData>().Tokens();
+    QVariantMap storedClientData =
+        storedTokenData.value(data.ClientId()).toMap();
+    QVERIFY(!storedClientData.isEmpty());
+    QCOMPARE(storedClientData["Scopes"].toStringList(), scopes);
 
     //valid data
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=testtoken."));
