@@ -1,10 +1,14 @@
-signon-plugin-oauth2 (0.17-0ubuntu1) UNRELEASED; urgency=low
+signon-plugin-oauth2 (0.17bzr13.04.26daily13.05.01.1ubuntu.unity.next-0ubuntu1) raring; urgency=low
 
+  [ Alberto Mardegan ]
   * Automatic snapshot from revision 47 (bootstrap)
   * New upstream release.
     - Use libsignon-qt5 when building for Qt5
 
- -- Alberto Mardegan <alberto.mardegan@canonical.com>  Fri, 26 Apr 2013 12:27:42 +0300
+  [ Ubuntu daily release ]
+  * Automatic snapshot from revision 48 (ubuntu-unity/next)
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Wed, 01 May 2013 07:53:30 +0000
 
 signon-plugin-oauth2 (0.15-0ubuntu1) raring; urgency=low
 
