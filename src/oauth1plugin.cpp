@@ -227,8 +227,7 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
     }
 
     d->m_mechanism = mechanism;
-    OAuth1PluginData data = inData.data<OAuth1PluginData>();
-    d->m_key = data.ConsumerKey();
+    d->m_key = inData.data<OAuth1PluginData>().ConsumerKey();
 
     //get stored data
     OAuth2TokenData tokens = inData.data<OAuth2TokenData>();
@@ -241,6 +240,38 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
         tokens.setTokens(d->m_tokens);
         emit store(tokens);
         TRACE() << d->m_tokens;
+    }
+
+    //get provided token data if specified
+    if (!tokens.ProvidedTokens().isEmpty()) {
+        //check that the provided tokens contain required values
+        OAuth1PluginTokenData providedTokens =
+                SignOn::SessionData(tokens.ProvidedTokens())
+                .data<OAuth1PluginTokenData>();
+        if (providedTokens.AccessToken().isEmpty() ||
+            providedTokens.TokenSecret().isEmpty()) {
+            //note: we don't check UserId or ScreenName as it might not be required
+            TRACE() << "Invalid provided tokens data - continuing normal process flow";
+        } else {
+            TRACE() << "Storing provided tokens";
+            QVariantMap storeTokens;
+            storeTokens.insert(OAUTH_TOKEN, providedTokens.AccessToken());
+            storeTokens.insert(OAUTH_TOKEN_SECRET, providedTokens.TokenSecret());
+            if (!providedTokens.UserId().isNull())
+                storeTokens.insert(USER_ID, providedTokens.UserId());
+            if (!providedTokens.ScreenName().isNull())
+                storeTokens.insert(SCREEN_NAME, providedTokens.ScreenName());
+
+            d->m_oauth1Token = providedTokens.AccessToken().toAscii();
+            d->m_oauth1TokenSecret = providedTokens.TokenSecret().toAscii();
+            d->m_oauth1UserId = providedTokens.UserId().toAscii();
+            d->m_oauth1ScreenName = providedTokens.ScreenName().toAscii();
+
+            OAuth2TokenData tokens;
+            d->m_tokens.insert(d->m_key, QVariant::fromValue(storeTokens));
+            tokens.setTokens(d->m_tokens);
+            emit store(tokens);
+        }
     }
 
     QVariant tokenVar = d->m_tokens.value(d->m_key);

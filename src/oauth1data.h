@@ -25,6 +25,7 @@
 
 #include <sessiondata.h>
 
+class OAuth2PluginTest;
 namespace OAuth2PluginNS {
 
     /*!
@@ -33,6 +34,7 @@ namespace OAuth2PluginNS {
  */
     class OAuth1PluginData : public SignOn::SessionData
     {
+    friend class ::OAuth2PluginTest;
     public:
         /*!
          * Request token endpoint of the server
