@@ -1,3 +1,9 @@
+signon-plugin-oauth2 (0.17bzr13.04.26daily13.06.05.1-0ubuntu1) saucy; urgency=low
+
+  * Automatic snapshot from revision 49
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Wed, 05 Jun 2013 18:49:04 +0000
+
 signon-plugin-oauth2 (0.17bzr13.04.26daily13.05.01.1ubuntu.unity.next-0ubuntu1) raring; urgency=low
 
   [ Alberto Mardegan ]
