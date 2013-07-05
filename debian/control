@@ -18,7 +18,7 @@ Homepage: http://code.google.com/p/accounts-sso/
 Vcs-Bzr: https://code.launchpad.net/~online-accounts/signon-plugin-oauth2/trunk
 
 Package: signon-plugin-oauth2
-Architecture: any
+Architecture: i386 amd64 armhf arm64
 Section: libs
 Depends: ${shlibs:Depends},
          ${misc:Depends},
@@ -27,7 +27,7 @@ Description: Single Signon oauth2 plugin
  Oauth2 plugin for the Single Signon framework
 
 Package: signon-plugin-oauth2-tests
-Architecture: any
+Architecture: i386 amd64 armhf arm64
 Section: libs
 Depends: signon-plugin-oauth2 (= ${binary:Version}),
          ${shlibs:Depends},
