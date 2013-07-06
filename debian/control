@@ -38,7 +38,7 @@ Description: Single Signon oauth2 plugin
  This package contains file that are needed to test the plugin.
 
 Package: signon-plugin-oauth2-dev
-Architecture: any
+Architecture: i386 amd64 armhf arm64
 Section: libdevel
 Depends: signon-plugin-oauth2 (= ${binary:Version}),
          ${shlibs:Depends},
