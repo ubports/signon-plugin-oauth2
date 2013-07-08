@@ -1,3 +1,14 @@
+signon-plugin-oauth2 (0.17bzr13.04.26+13.10.20130708-0ubuntu1) saucy; urgency=low
+
+  [ Ken VanDine ]
+  * don't build on powerpc as the new Qt5-based version don't have
+    powerpc qtscripts. .
+
+  [ Ubuntu daily release ]
+  * Automatic snapshot from revision 53
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Mon, 08 Jul 2013 04:31:08 +0000
+
 signon-plugin-oauth2 (0.17bzr13.04.26+13.10.20130705-0ubuntu1) saucy; urgency=low
 
   [ Ken VanDine ]
