@@ -1,3 +1,10 @@
+signon-plugin-oauth2 (0.18-0ubuntu1) UNRELEASED; urgency=low
+
+  * New upstream release
+    - OAuth 1.0a: allow oauth_token_secret to be empty.
+
+ -- Alberto Mardegan <alberto.mardegan@canonical.com>  Wed, 13 Nov 2013 12:52:43 +0200
+
 signon-plugin-oauth2 (0.17bzr13.04.26+13.10.20130708-0ubuntu1) saucy; urgency=low
 
   [ Ken VanDine ]
