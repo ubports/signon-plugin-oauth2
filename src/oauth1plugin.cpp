@@ -550,8 +550,9 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
                 // Extracting the request token, token secret
                 d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
                 d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
-                if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
-                    TRACE() << "OAuth request token  or secret is empty";
+                if (d->m_oauth1Token.isEmpty() ||
+                    !map.contains(OAUTH_TOKEN_SECRET)) {
+                    TRACE() << "OAuth request token is empty or secret is missing";
                     emit error(Error(Error::OperationFailed, QString("Request token or secret missing")));
                 }
                 else {
@@ -562,8 +563,9 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
                 // Extracting the access token
                 d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
                 d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
-                if (d->m_oauth1Token.isEmpty() || d->m_oauth1TokenSecret.isEmpty()) {
-                    TRACE()<< "OAuth access token or secret is empty";
+                if (d->m_oauth1Token.isEmpty() ||
+                    !map.contains(OAUTH_TOKEN_SECRET)) {
+                    TRACE()<< "OAuth access token is empty or secret is missing";
                     emit error(Error(Error::OperationFailed, QString("Access token or secret missing")));
                 }
                 else {
