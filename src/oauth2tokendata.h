@@ -43,6 +43,32 @@ friend class ::OAuth2PluginTest;
      * Received tokens are stored in this map
      */
     SIGNON_SESSION_DECLARE_PROPERTY(QVariantMap, Tokens);
+
+    /*!
+     * Declares the property ProvidedTokens setter and getter.
+     * If this property is set then process() will store the value
+     * of this property and return the appropriate response data.
+     * This should be used only if the signon process is performed
+     * manually, and you wish to store the resulting credentials
+     * into the identity.
+     *
+     * If the flow is OAuth2 then the ProvidedTokens value must
+     * contain values for the following keys:
+     *  - AccessToken
+     *  - ExpiresIn
+     *  - RefreshToken
+     * and clients should use the OAuth2PluginTokenData class.
+     *
+     * If the flow is OAuth1.0a then the ProvidedTokens value
+     * must contain values for the following keys:
+     *  - AccessToken
+     *  - TokenSecret
+     * and optionally for:
+     *  - UserId
+     *  - ScreenName
+     * and clients should use the OAuth1PluginTokenData class.
+     */
+    SIGNON_SESSION_DECLARE_PROPERTY(QVariantMap, ProvidedTokens);
 };
 
 }  // namespace
