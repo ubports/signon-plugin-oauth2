@@ -24,6 +24,7 @@
 #include <QtTest/QtTest>
 
 #include "plugin.h"
+#include "oauth1data.h"
 #include "oauth2data.h"
 #include "oauth2tokendata.h"
 
@@ -185,6 +186,8 @@ void OAuth2PluginTest::testPluginProcess()
                   this,  SLOT(pluginError(const SignOn::Error &)),Qt::QueuedConnection);
     QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
                   this,  SLOT(uiRequest(const SignOn::UiSessionData&)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(store(const SignOn::SessionData&)),
+                  this,  SLOT(store(const SignOn::SessionData&)),Qt::QueuedConnection);
     QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
 
     // Invalid mechanism
@@ -272,6 +275,147 @@ void OAuth2PluginTest::testPluginProcess()
     resp = m_response.data<OAuth2PluginTokenData>();
     QCOMPARE(resp.AccessToken(), QLatin1String("tokenfromtest"));
 
+    /* test the ProvidedTokens semantics */
+    OAuth2PluginData providedTokensWebServerData;
+    providedTokensWebServerData.setHost("https://localhost");
+    providedTokensWebServerData.setAuthPath("authorize");
+    providedTokensWebServerData.setClientId("104660106251471");
+    providedTokensWebServerData.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    providedTokensWebServerData.setRedirectUri("http://localhost/connect/login_success.html");
+    providedTokensWebServerData.setTokenPath("token");
+    providedTokensWebServerData.setScope(QStringList() << "scope1" << "scope3" << "scope2");
+    QVariantMap providedTokens;
+    providedTokens.insert("AccessToken", "providedtokenfromtest");
+    providedTokens.insert("RefreshToken", "providedrefreshfromtest");
+    providedTokens.insert("ExpiresIn", 12345);
+
+    /* try providing tokens to be stored */
+    m_stored = SignOn::SessionData(QVariantMap());
+    m_response = SignOn::SessionData(QVariantMap());
+    providedTokensWebServerData.m_data.insert("ProvidedTokens", providedTokens);
+    m_testPlugin->process(providedTokensWebServerData, QString("web_server"));
+    m_loop.exec();
+    resp = m_response.data<OAuth2PluginTokenData>();
+    QCOMPARE(resp.AccessToken(), QLatin1String("providedtokenfromtest"));
+    QVariantMap storedTokens = m_stored.getProperty("Tokens").toMap();
+    QVariantMap storedTokensForKey = storedTokens.value(providedTokensWebServerData.ClientId()).toMap();
+    QCOMPARE(storedTokensForKey.value("Token"), providedTokens.value("AccessToken"));
+    QCOMPARE(storedTokensForKey.value("refresh_token"), providedTokens.value("RefreshToken"));
+
+    /* ensure that subsequent requests return the provided tokens */
+    m_response = SignOn::SessionData(QVariantMap());
+    providedTokensWebServerData.m_data.insert("ProvidedTokens", QVariantMap());
+    providedTokensWebServerData.m_data.insert("Tokens", storedTokens);
+    m_testPlugin->process(providedTokensWebServerData, QString("web_server"));
+    m_loop.exec();
+    resp = m_response.data<OAuth2PluginTokenData>();
+    QCOMPARE(resp.AccessToken(), QLatin1String("providedtokenfromtest"));
+
+    TEST_DONE
+}
+
+void OAuth2PluginTest::testPluginHmacSha1Process()
+{
+    TEST_START
+
+    OAuth1PluginData hmacSha1Data;
+    hmacSha1Data.setRequestEndpoint("https://localhost/oauth/request_token");
+    hmacSha1Data.setTokenEndpoint("https://localhost/oauth/access_token");
+    hmacSha1Data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
+    hmacSha1Data.setCallback("https://localhost/connect/login_success.html");
+    hmacSha1Data.setConsumerKey("104660106251471");
+    hmacSha1Data.setConsumerSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+
+    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
+                  this,  SLOT(result(const SignOn::SessionData&)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
+                  this,  SLOT(pluginError(const SignOn::Error &)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
+                  this,  SLOT(uiRequest(const SignOn::UiSessionData&)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(store(const SignOn::SessionData&)),
+                  this,  SLOT(store(const SignOn::SessionData&)),Qt::QueuedConnection);
+    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+
+    // Invalid mechanism
+    m_testPlugin->process(hmacSha1Data, QString("ANONYMOUS"));
+    m_loop.exec();
+    QCOMPARE(m_error.type(), int(Error::MechanismNotAvailable));
+
+    // Try without params
+    hmacSha1Data.setAuthorizationEndpoint(QString());
+    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
+    m_loop.exec();
+    QCOMPARE(m_error.type(), int(Error::MissingData));
+
+    // Check for signon UI request for HMAC-SHA1
+    hmacSha1Data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
+    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
+    m_loop.exec();
+    qDebug() << "Data = " << m_uiResponse.UrlResponse();
+    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
+
+    /* Now store some tokens and test the responses */
+    hmacSha1Data.m_data.insert("UiPolicy", NoUserInteractionPolicy);
+    QVariantMap tokens; // ConsumerKey to Token map
+    QVariantMap token;
+    token.insert("oauth_token", QLatin1String("hmactokenfromtest"));
+    token.insert("oauth_token_secret", QLatin1String("hmacsecretfromtest"));
+    token.insert("timestamp", QDateTime::currentDateTime().toTime_t());
+    token.insert("Expiry", (uint)50000);
+    tokens.insert(QLatin1String("invalidid"), QVariant::fromValue(token));
+    hmacSha1Data.m_data.insert(QLatin1String("Tokens"), tokens);
+
+    // Try without cached token for our ConsumerKey
+    m_response = SignOn::SessionData(QVariantMap());
+    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
+    m_loop.exec();
+    OAuth1PluginTokenData resp = m_response.data<OAuth1PluginTokenData>();
+    QVERIFY(resp.AccessToken() != QLatin1String("hmactokenfromtest"));
+
+    // Ensure that the cached token is returned as required
+    m_response = SignOn::SessionData(QVariantMap());
+    tokens.insert(hmacSha1Data.ConsumerKey(), QVariant::fromValue(token));
+    hmacSha1Data.m_data.insert(QLatin1String("Tokens"), tokens);
+    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
+    m_loop.exec();
+    resp = m_response.data<OAuth1PluginTokenData>();
+    QCOMPARE(resp.AccessToken(), QLatin1String("hmactokenfromtest"));
+
+    /* test the ProvidedTokens semantics */
+    OAuth1PluginData providedTokensHmacSha1Data;
+    providedTokensHmacSha1Data.setRequestEndpoint("https://localhost/oauth/request_token");
+    providedTokensHmacSha1Data.setTokenEndpoint("https://localhost/oauth/access_token");
+    providedTokensHmacSha1Data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
+    providedTokensHmacSha1Data.setCallback("https://localhost/connect/login_success.html");
+    providedTokensHmacSha1Data.setConsumerKey("104660106251471");
+    providedTokensHmacSha1Data.setConsumerSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    QVariantMap providedTokens;
+    providedTokens.insert("AccessToken", "providedhmactokenfromtest");
+    providedTokens.insert("TokenSecret", "providedhmacsecretfromtest");
+    providedTokens.insert("ScreenName", "providedhmacscreennamefromtest");
+
+    // try providing tokens to be stored
+    m_stored = SignOn::SessionData(QVariantMap());
+    m_response = SignOn::SessionData(QVariantMap());
+    providedTokensHmacSha1Data.m_data.insert("ProvidedTokens", providedTokens);
+    m_testPlugin->process(providedTokensHmacSha1Data, QString("HMAC-SHA1"));
+    m_loop.exec();
+    resp = m_response.data<OAuth1PluginTokenData>();
+    QCOMPARE(resp.AccessToken(), QLatin1String("providedhmactokenfromtest"));
+    QVariantMap storedTokens = m_stored.getProperty("Tokens").toMap();
+    QVariantMap storedTokensForKey = storedTokens.value(providedTokensHmacSha1Data.ConsumerKey()).toMap();
+    QCOMPARE(storedTokensForKey.value("oauth_token"), providedTokens.value("AccessToken"));
+    QCOMPARE(storedTokensForKey.value("oauth_token_secret"), providedTokens.value("TokenSecret"));
+
+    // ensure that subsequent requests return the provided tokens
+    m_response = SignOn::SessionData(QVariantMap());
+    providedTokensHmacSha1Data.m_data.insert("UiPolicy", NoUserInteractionPolicy);
+    providedTokensHmacSha1Data.m_data.insert("ProvidedTokens", QVariantMap());
+    providedTokensHmacSha1Data.m_data.insert("Tokens", storedTokens);
+    m_testPlugin->process(providedTokensHmacSha1Data, QString("HMAC-SHA1"));
+    m_loop.exec();
+    resp = m_response.data<OAuth1PluginTokenData>();
+    QCOMPARE(resp.AccessToken(), QLatin1String("providedhmactokenfromtest"));
 
     TEST_DONE
 }

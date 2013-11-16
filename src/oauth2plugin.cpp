@@ -251,8 +251,8 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
     }
 
     d->m_mechanism = mechanism;
-    OAuth2PluginData data = inData.data<OAuth2PluginData>();
-    d->m_key = data.ClientId();
+    d->m_oauth2Data = inData.data<OAuth2PluginData>();
+    d->m_key = d->m_oauth2Data.ClientId();
 
     //get stored data
     OAuth2TokenData tokens = inData.data<OAuth2TokenData>();
@@ -267,11 +267,31 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
         TRACE() << d->m_tokens;
     }
 
+    //get provided token data if specified
+    if (!tokens.ProvidedTokens().isEmpty()) {
+        //check that the provided tokens contain required values
+        OAuth2PluginTokenData providedTokens =
+                SignOn::SessionData(tokens.ProvidedTokens())
+                .data<OAuth2PluginTokenData>();
+        if (providedTokens.AccessToken().isEmpty() ||
+            providedTokens.RefreshToken().isEmpty()) {
+            //note: we don't check ExpiresIn as it might not be required
+            TRACE() << "Invalid provided tokens data - continuing normal process flow";
+        } else {
+            TRACE() << "Storing provided tokens";
+            OAuth2PluginTokenData storeTokens;
+            storeTokens.setAccessToken(providedTokens.AccessToken());
+            storeTokens.setRefreshToken(providedTokens.RefreshToken());
+            storeTokens.setExpiresIn(providedTokens.ExpiresIn());
+            storeResponse(storeTokens);
+        }
+    }
+
     QVariant tokenVar = d->m_tokens.value(d->m_key);
     QVariantMap storedData;
     if (tokenVar.canConvert<QVariantMap>()) {
         storedData = tokenVar.value<QVariantMap>();
-        if (respondWithStoredToken(storedData, data.Scope())) {
+        if (respondWithStoredToken(storedData, d->m_oauth2Data.Scope())) {
             return;
         }
     }
@@ -282,7 +302,6 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
     d->m_password = inData.Secret();
 
     if (mechanism == WEB_SERVER || mechanism == USER_AGENT) {
-        d->m_oauth2Data = data;
         if (mechanism == WEB_SERVER &&
             storedData.contains(REFRESH_TOKEN) &&
             !storedData[REFRESH_TOKEN].toString().isEmpty()) {
