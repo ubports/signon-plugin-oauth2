@@ -1,11 +1,15 @@
-signon-plugin-oauth2 (0.19-0ubuntu1) UNRELEASED; urgency=low
+signon-plugin-oauth2 (0.19+14.04.20131126.2-0ubuntu1) trusty; urgency=low
 
+  [ Alberto Mardegan ]
   * New upstream release (0.19)
     - OAuth 1.0a: allow oauth_token_secret to be empty.
   * New upstream release (0.18)
     - OAuth2: Allow clients to provide tokens to store.
 
- -- Alberto Mardegan <alberto.mardegan@canonical.com>  Wed, 13 Nov 2013 12:52:43 +0200
+  [ Ubuntu daily release ]
+  * Automatic snapshot from revision 55
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Tue, 26 Nov 2013 19:08:46 +0000
 
 signon-plugin-oauth2 (0.17bzr13.04.26+13.10.20130708-0ubuntu1) saucy; urgency=low
 
