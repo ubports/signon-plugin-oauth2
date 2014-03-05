@@ -1,3 +1,13 @@
+signon-plugin-oauth2 (0.19+14.04.20140305-0ubuntu1) trusty; urgency=low
+
+  [ CI bot ]
+  * No change rebuild against Qt 5.2.1.
+
+  [ Ubuntu daily release ]
+  * New rebuild forced
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Wed, 05 Mar 2014 09:17:48 +0000
+
 signon-plugin-oauth2 (0.19+14.04.20131126.2-0ubuntu1) trusty; urgency=low
 
   [ Alberto Mardegan ]
