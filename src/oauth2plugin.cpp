@@ -622,7 +622,9 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
         refreshToken = response.RefreshToken();
     }
     token.insert(REFRESH_TOKEN, refreshToken);
-    token.insert(EXPIRY, response.ExpiresIn());
+    if (response.ExpiresIn() > 0) {
+        token.insert(EXPIRY, response.ExpiresIn());
+    }
     token.insert(TIMESTAMP, QDateTime::currentDateTime().toTime_t());
     token.insert(SCOPES, d->m_oauth2Data.Scope());
     d->m_tokens.insert(d->m_key, QVariant::fromValue(token));
