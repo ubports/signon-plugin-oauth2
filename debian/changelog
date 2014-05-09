@@ -1,3 +1,9 @@
+signon-plugin-oauth2 (0.19+14.04.20140305-0ubuntu2) trusty; urgency=medium
+
+  * Build for Architecture:any.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Sun, 16 Mar 2014 13:30:03 +0000
+
 signon-plugin-oauth2 (0.19+14.04.20140305-0ubuntu1) trusty; urgency=low
 
   [ CI bot ]
