@@ -488,6 +488,14 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     result = (OAuth2PluginTokenData*)&m_response;
     QCOMPARE(result->AccessToken(), QString("testtoken."));
     QCOMPARE(result->ExpiresIn(), 0);
+    /* Check that the expiration time has not been stored, since the expiration
+     * time was not given (https://bugs.launchpad.net/bugs/1316021)
+     */
+    storedTokenData = m_stored.data<OAuth2TokenData>().Tokens();
+    storedClientData = storedTokenData.value(data.ClientId()).toMap();
+    QVERIFY(!storedClientData.isEmpty());
+    QCOMPARE(storedClientData["Token"].toString(), QString("testtoken."));
+    QVERIFY(!storedClientData.contains("Expiry"));
 
     //Permission denied
     info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html?error=user_denied"));
