@@ -1,3 +1,13 @@
+signon-plugin-oauth2 (0.19+14.10.20140513-0ubuntu1) utopic; urgency=low
+
+  [ Ubuntu daily release ]
+  * New rebuild forced
+
+  [ Alberto Mardegan ]
+  * Do not store invalid expiration times (LP: #1316021)
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Tue, 13 May 2014 07:07:20 +0000
+
 signon-plugin-oauth2 (0.19+14.10.20140509.2-0ubuntu1) utopic; urgency=low
 
   [ Ubuntu daily release ]
