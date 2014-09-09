@@ -72,7 +72,7 @@ private:
     bool respondWithStoredToken(const QVariantMap &token,
                                 const QStringList &scopes);
     void refreshOAuth2Token(const QString &refreshToken);
-    void sendOAuth2PostRequest(const QByteArray &postData,
+    void sendOAuth2PostRequest(QUrl &postData,
                                GrantType::e grantType);
     void storeResponse(const OAuth2PluginTokenData &response);
     const QVariantMap parseJSONReply(const QByteArray &reply);
