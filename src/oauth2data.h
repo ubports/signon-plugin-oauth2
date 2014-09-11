@@ -57,6 +57,13 @@ namespace OAuth2PluginNS {
         SIGNON_SESSION_DECLARE_PROPERTY(QString, ClientSecret);
 
         /*!
+         * Set this to true if the server does not conform to the OAuth 2.0
+         * specification in that it does not support supplying client ID and
+         * secret via basic HTTP authorization.
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(bool, ForceClientAuthViaRequestBody);
+
+        /*!
          * redirection URI
          */
         SIGNON_SESSION_DECLARE_PROPERTY(QString, RedirectUri);
