@@ -21,6 +21,10 @@
  * 02110-1301 USA
  */
 
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QPointer>
+#include <QTimer>
 #include <QtTest/QtTest>
 
 #include "plugin.h"
@@ -35,6 +39,91 @@ using namespace SignOn;
 
 #define TEST_START qDebug("\n\n\n\n ----------------- %s ----------------\n\n",  __func__);
 #define TEST_DONE  qDebug("\n\n ----------------- %s DONE ----------------\n\n",  __func__);
+
+class TestNetworkReply: public QNetworkReply
+{
+    Q_OBJECT
+
+public:
+    TestNetworkReply(QObject *parent = 0):
+        QNetworkReply(parent),
+        m_offset(0)
+    {}
+
+    void setError(NetworkError errorCode, const QString &errorString) {
+        QNetworkReply::setError(errorCode, errorString);
+    }
+
+    void setRawHeader(const QByteArray &headerName, const QByteArray &value) {
+        QNetworkReply::setRawHeader(headerName, value);
+    }
+
+    void setContentType(const QString &contentType) {
+        setRawHeader("Content-Type", contentType.toUtf8());
+    }
+
+    void setStatusCode(int statusCode) {
+        setAttribute(QNetworkRequest::HttpStatusCodeAttribute, statusCode);
+    }
+
+    void setContent(const QByteArray &content) {
+        m_content = content;
+        m_offset = 0;
+
+        open(ReadOnly | Unbuffered);
+        setHeader(QNetworkRequest::ContentLengthHeader, QVariant(content.size()));
+
+        QTimer::singleShot(0, this, SIGNAL(readyRead()));
+        QTimer::singleShot(10, this, SLOT(finish()));
+    }
+
+public Q_SLOTS:
+    void finish() { setFinished(true); Q_EMIT finished(); }
+
+protected:
+    void abort() Q_DECL_OVERRIDE {}
+    qint64 bytesAvailable() const Q_DECL_OVERRIDE {
+        return m_content.size() - m_offset + QIODevice::bytesAvailable();
+    }
+
+    bool isSequential() const Q_DECL_OVERRIDE { return true; }
+    qint64 readData(char *data, qint64 maxSize) Q_DECL_OVERRIDE {
+        if (m_offset >= m_content.size())
+            return -1;
+        qint64 number = qMin(maxSize, m_content.size() - m_offset);
+        memcpy(data, m_content.constData() + m_offset, number);
+        m_offset += number;
+        return number;
+    }
+
+private:
+    QByteArray m_content;
+    qint64 m_offset;
+};
+
+class TestNetworkAccessManager: public QNetworkAccessManager
+{
+    Q_OBJECT
+
+public:
+    TestNetworkAccessManager(): QNetworkAccessManager() {}
+
+    void setNextReply(TestNetworkReply *reply) { m_nextReply = reply; }
+
+protected:
+    QNetworkReply *createRequest(Operation op, const QNetworkRequest &request,
+                                 QIODevice *outgoingData = 0) Q_DECL_OVERRIDE {
+        Q_UNUSED(op);
+        m_lastRequest = request;
+        m_lastRequestData = outgoingData->readAll();
+        return m_nextReply;
+    }
+
+public:
+    QPointer<TestNetworkReply> m_nextReply;
+    QNetworkRequest m_lastRequest;
+    QByteArray m_lastRequestData;
+};
 
 void OAuth2PluginTest::initTestCase()
 {
@@ -56,6 +145,8 @@ void OAuth2PluginTest::cleanupTestCase()
 void OAuth2PluginTest::init()
 {
     m_testPlugin = new Plugin();
+    m_response = SignOn::SessionData();
+    m_error = SignOn::Error(-1);
 }
 
 //finnish each test by deleting plugin
@@ -506,18 +597,169 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     TEST_DONE
 }
 
+void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
+{
+    QTest::addColumn<QString>("urlResponse");
+    QTest::addColumn<int>("errorCode");
+    QTest::addColumn<QString>("postUrl");
+    QTest::addColumn<QString>("postContents");
+    QTest::addColumn<int>("replyStatusCode");
+    QTest::addColumn<QString>("replyContentType");
+    QTest::addColumn<QString>("replyContents");
+    QTest::addColumn<QVariantMap>("response");
+
+    QVariantMap response;
+
+    QTest::newRow("empty data") <<
+        "" <<
+        int(Error::NotAuthorized) <<
+        "" << "" << 0 << "" << "" << QVariantMap();
+
+    QTest::newRow("no query data") <<
+        "http://localhost/resp.html" <<
+        int(Error::NotAuthorized) <<
+        "" << "" << 0 << "" << "" << QVariantMap();
+
+    QTest::newRow("permission denied") <<
+        "http://localhost/resp.html?error=user_denied" <<
+        int(Error::NotAuthorized) <<
+        "" << "" << 0 << "" << "" << QVariantMap();
+
+    QTest::newRow("invalid data") <<
+        "http://localhost/resp.html?sdsdsds=access.grant." <<
+        int(Error::NotAuthorized) <<
+        "" << "" << 0 << "" << "" << QVariantMap();
+
+    QTest::newRow("reply code, http error 401") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(Error::OperationFailed) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(401) <<
+        "application/json" <<
+        "something else" <<
+        QVariantMap();
+
+    QTest::newRow("reply code, empty reply") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(Error::NotAuthorized) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "application/json" <<
+        "something else" <<
+        QVariantMap();
+
+    QTest::newRow("reply code, no content type") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(Error::OperationFailed) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "" <<
+        "something else" <<
+        QVariantMap();
+
+    QTest::newRow("reply code, unsupported content type") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(Error::OperationFailed) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "image/jpeg" <<
+        "something else" <<
+        QVariantMap();
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    QTest::newRow("reply code, valid token") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
+        response;
+
+    response.clear();
+    QTest::newRow("reply code, facebook, no token") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(Error::NotAuthorized) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "text/plain" <<
+        "expires=3600" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    QTest::newRow("reply code, facebook, valid token") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "text/plain" <<
+        "access_token=t0k3n&expires=3600" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    QTest::newRow("username-password, valid token") <<
+        "http://localhost/resp.html?username=us3r&password=s3cr3t" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=user_basic&username=us3r&password=s3cr3t" <<
+        int(200) <<
+        "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    QTest::newRow("assertion, valid token") <<
+        "http://localhost/resp.html?assertion_type=http://oauth.net/token/1.0"
+        "&assertion=oauth1t0k3n" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=assertion&assertion_type=http://oauth.net/token/1.0&assertion=oauth1t0k3n" <<
+        int(200) <<
+        "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
+        response;
+}
+
 void OAuth2PluginTest::testPluginWebserverUserActionFinished()
 {
     TEST_START
 
+    QFETCH(QString, urlResponse);
+    QFETCH(int, errorCode);
+    QFETCH(QString, postUrl);
+    QFETCH(QString, postContents);
+    QFETCH(int, replyStatusCode);
+    QFETCH(QString, replyContentType);
+    QFETCH(QString, replyContents);
+    QFETCH(QVariantMap, response);
+
     SignOn::UiSessionData info;
     OAuth2PluginData data;
-    data.setHost("https://localhost");
+    data.setHost("localhost");
     data.setAuthPath("authorize");
     data.setTokenPath("access_token");
     data.setClientId("104660106251471");
     data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
-    data.setRedirectUri("http://localhost/connect/login_success.html");
+    data.setRedirectUri("http://localhost/resp.html");
 
     QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
                   this,  SLOT(result(const SignOn::SessionData&)),Qt::QueuedConnection);
@@ -527,33 +769,281 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
                   this,  SLOT(uiRequest(const SignOn::UiSessionData&)),Qt::QueuedConnection);
     QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
 
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    reply->setStatusCode(replyStatusCode);
+    if (!replyContentType.isEmpty()) {
+        reply->setContentType(replyContentType);
+    }
+    reply->setContent(replyContents.toUtf8());
+    nam->setNextReply(reply);
+
     m_testPlugin->process(data, QString("web_server"));
     m_loop.exec();
     qDebug() << "Data = " << m_uiResponse.UrlResponse();
     QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
 
-    //empty data
-    m_testPlugin->userActionFinished(info);
-    m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
+    if (!urlResponse.isEmpty()) {
+        info.setUrlResponse(urlResponse);
+    }
 
-    //invalid data
-    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html"));
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
 
-    //Permission denied
-    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html?error=user_denied"));
-    m_testPlugin->userActionFinished(info);
-    m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
+    QCOMPARE(m_error.type(), errorCode);
+    QCOMPARE(nam->m_lastRequest.url(), QUrl(postUrl));
+    QCOMPARE(QString::fromUtf8(nam->m_lastRequestData), postContents);
+    qDebug() << "got response" << m_response.toMap();
+    qDebug() << "expected" << response;
+    QCOMPARE(m_response.toMap(), response);
 
-    //invalid data
-    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html?sdsdsds=access.grant."));
+    delete nam;
+
+    TEST_DONE
+}
+
+void OAuth2PluginTest::testOAuth2Errors_data()
+{
+    QTest::addColumn<QString>("replyContents");
+    QTest::addColumn<int>("expectedErrorCode");
+
+    QTest::newRow("incorrect_client_credentials") <<
+        "{ \"error\": \"incorrect_client_credentials\" }" <<
+        int(Error::InvalidCredentials);
+
+    QTest::newRow("redirect_uri_mismatch") <<
+        "{ \"error\": \"redirect_uri_mismatch\" }" <<
+        int(Error::InvalidCredentials);
+
+    QTest::newRow("bad_authorization_code") <<
+        "{ \"error\": \"bad_authorization_code\" }" <<
+        int(Error::InvalidCredentials);
+
+    QTest::newRow("invalid_client_credentials") <<
+        "{ \"error\": \"invalid_client_credentials\" }" <<
+        int(Error::InvalidCredentials);
+
+    QTest::newRow("unauthorized_client") <<
+        "{ \"error\": \"unauthorized_client\" }" <<
+        int(Error::NotAuthorized);
+
+    QTest::newRow("invalid_assertion") <<
+        "{ \"error\": \"invalid_assertion\" }" <<
+        int(Error::InvalidCredentials);
+
+    QTest::newRow("unknown_format") <<
+        "{ \"error\": \"unknown_format\" }" <<
+        int(Error::InvalidQuery);
+
+    QTest::newRow("authorization_expired") <<
+        "{ \"error\": \"authorization_expired\" }" <<
+        int(Error::InvalidCredentials);
+
+    QTest::newRow("multiple_credentials") <<
+        "{ \"error\": \"multiple_credentials\" }" <<
+        int(Error::InvalidQuery);
+
+    QTest::newRow("invalid_user_credentials") <<
+        "{ \"error\": \"invalid_user_credentials\" }" <<
+        int(Error::InvalidCredentials);
+}
+
+void OAuth2PluginTest::testOAuth2Errors()
+{
+    TEST_START
+
+    QFETCH(QString, replyContents);
+    QFETCH(int, expectedErrorCode);
+
+    SignOn::UiSessionData info;
+    OAuth2PluginData data;
+    data.setHost("localhost");
+    data.setAuthPath("authorize");
+    data.setTokenPath("access_token");
+    data.setClientId("104660106251471");
+    data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    data.setRedirectUri("http://localhost/resp.html");
+
+    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
+                  this, SLOT(result(const SignOn::SessionData&)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
+                  this, SLOT(pluginError(const SignOn::Error &)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
+                  this, SLOT(uiRequest(const SignOn::UiSessionData&)),
+                  Qt::QueuedConnection);
+    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    reply->setStatusCode(401);
+    reply->setContentType("application/json");
+    reply->setContent(replyContents.toUtf8());
+    nam->setNextReply(reply);
+
+    m_testPlugin->process(data, QString("web_server"));
+    m_loop.exec();
+
+    info.setUrlResponse("http://localhost/resp.html?code=c0d3");
     m_testPlugin->userActionFinished(info);
     m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::NotAuthorized));
+
+    QCOMPARE(m_error.type(), expectedErrorCode);
+
+    delete nam;
+
+    TEST_DONE
+}
+
+void OAuth2PluginTest::testRefreshToken()
+{
+    TEST_START
+
+    SignOn::UiSessionData info;
+    OAuth2PluginData data;
+    data.setHost("localhost");
+    data.setAuthPath("authorize");
+    data.setTokenPath("access_token");
+    data.setClientId("104660106251471");
+    data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    data.setRedirectUri("http://localhost/resp.html");
+
+    /* Pretend that we have stored an expired access token, but have a refresh
+     * token */
+    QVariantMap tokens;
+    QVariantMap token;
+    token.insert("Token", QLatin1String("tokenfromtest"));
+    token.insert("timestamp", QDateTime::currentDateTime().toTime_t() - 10000);
+    token.insert("Expiry", 1000);
+    token.insert("refresh_token", QString("r3fr3sh"));
+    tokens.insert(data.ClientId(), QVariant::fromValue(token));
+    data.m_data.insert("Tokens", tokens);
+
+    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
+                  this, SLOT(result(const SignOn::SessionData&)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
+                  this, SLOT(pluginError(const SignOn::Error &)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
+                  this, SLOT(uiRequest(const SignOn::UiSessionData&)),
+                  Qt::QueuedConnection);
+    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    reply->setStatusCode(200);
+    reply->setContentType("application/json");
+    reply->setContent("{ \"access_token\":\"n3w-t0k3n\", \"expires_in\": 3600 }");
+    nam->setNextReply(reply);
+
+    m_testPlugin->process(data, QString("web_server"));
+    m_loop.exec();
+
+    QCOMPARE(m_error.type(), -1);
+    QCOMPARE(nam->m_lastRequest.url(), QUrl("https://localhost/access_token"));
+    QCOMPARE(QString::fromUtf8(nam->m_lastRequestData),
+             QString("grant_type=refresh_token&refresh_token=r3fr3sh"));
+
+    QVariantMap expectedResponse;
+    expectedResponse.insert("AccessToken", "n3w-t0k3n");
+    expectedResponse.insert("ExpiresIn", 3600);
+    expectedResponse.insert("RefreshToken", QString());
+    qDebug() << "got response" << m_response.toMap();
+    qDebug() << "expected" << expectedResponse;
+    QCOMPARE(m_response.toMap(), expectedResponse);
+
+    delete nam;
+
+    TEST_DONE
+}
+
+void OAuth2PluginTest::testClientAuthentication_data()
+{
+    QTest::addColumn<QString>("clientSecret");
+    QTest::addColumn<bool>("forceAuthViaRequestBody");
+    QTest::addColumn<QString>("postContents");
+    QTest::addColumn<QString>("postAuthorization");
+
+    QTest::newRow("no secret, std auth") <<
+        "" << false <<
+        "grant_type=authorization_code&code=c0d3"
+        "&redirect_uri=http://localhost/resp.html&client_id=104660106251471" <<
+        "";
+    QTest::newRow("no secret, auth in body") <<
+        "" << true <<
+        "grant_type=authorization_code&code=c0d3"
+        "&redirect_uri=http://localhost/resp.html&client_id=104660106251471" <<
+        "";
+
+    QTest::newRow("with secret, std auth") <<
+        "s3cr3t" << false <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        "Basic MTA0NjYwMTA2MjUxNDcxOnMzY3IzdA==";
+    QTest::newRow("with secret, auth in body") <<
+        "s3cr3t" << true <<
+        "grant_type=authorization_code&code=c0d3"
+        "&redirect_uri=http://localhost/resp.html"
+        "&client_id=104660106251471&client_secret=s3cr3t" <<
+        "";
+}
+
+void OAuth2PluginTest::testClientAuthentication()
+{
+    TEST_START
+
+    QFETCH(QString, clientSecret);
+    QFETCH(bool, forceAuthViaRequestBody);
+    QFETCH(QString, postContents);
+    QFETCH(QString, postAuthorization);
+
+    SignOn::UiSessionData info;
+    OAuth2PluginData data;
+    data.setHost("localhost");
+    data.setAuthPath("authorize");
+    data.setTokenPath("access_token");
+    data.setClientId("104660106251471");
+    data.setClientSecret(clientSecret);
+    data.setRedirectUri("http://localhost/resp.html");
+    data.setForceClientAuthViaRequestBody(forceAuthViaRequestBody);
+
+    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
+                  this, SLOT(result(const SignOn::SessionData&)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
+                  this, SLOT(pluginError(const SignOn::Error &)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
+                  this, SLOT(uiRequest(const SignOn::UiSessionData&)),
+                  Qt::QueuedConnection);
+    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    reply->setStatusCode(200);
+    reply->setContentType("application/json");
+    reply->setContent("{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }");
+    nam->setNextReply(reply);
+
+    m_testPlugin->process(data, QString("web_server"));
+    m_loop.exec();
+
+    info.setUrlResponse("http://localhost/resp.html?code=c0d3");
+    m_testPlugin->userActionFinished(info);
+    m_loop.exec();
+
+    QCOMPARE(m_error.type(), -1);
+    QCOMPARE(nam->m_lastRequest.url(), QUrl("https://localhost/access_token"));
+    QCOMPARE(QString::fromUtf8(nam->m_lastRequestData), postContents);
+    QCOMPARE(QString::fromUtf8(nam->m_lastRequest.rawHeader("Authorization")),
+             postAuthorization);
+
+    delete nam;
 
     TEST_DONE
 }
@@ -561,4 +1051,4 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
 //end test cases
 
 QTEST_MAIN(OAuth2PluginTest)
-
+#include "oauth2plugintest.moc"

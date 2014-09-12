@@ -56,7 +56,13 @@ private slots:
     void testPluginProcess();
     void testPluginHmacSha1Process();
     void testPluginUseragentUserActionFinished();
+    void testPluginWebserverUserActionFinished_data();
     void testPluginWebserverUserActionFinished();
+    void testOAuth2Errors_data();
+    void testOAuth2Errors();
+    void testRefreshToken();
+    void testClientAuthentication_data();
+    void testClientAuthentication();
 
 private:
     Plugin *m_testPlugin;

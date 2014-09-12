@@ -388,33 +388,27 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
         if (url.hasQueryItem(AUTH_CODE)) {
             QString code = url.queryItemValue(AUTH_CODE);
             newUrl.addQueryItem(GRANT_TYPE, AUTHORIZATION_CODE);
-            newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
-            newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
             newUrl.addQueryItem(AUTH_CODE, code);
             newUrl.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
-            sendOAuth2PostRequest(newUrl.encodedQuery(),
+            sendOAuth2PostRequest(newUrl,
                                   GrantType::AuthorizationCode);
         }
         else if (url.hasQueryItem(USERNAME) && url.hasQueryItem(PASSWORD)) {
             QString username = url.queryItemValue(USERNAME);
             QString password = url.queryItemValue(PASSWORD);
             newUrl.addQueryItem(GRANT_TYPE, USER_BASIC);
-            newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
-            newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
             newUrl.addQueryItem(USERNAME, username);
             newUrl.addQueryItem(PASSWORD, password);
-            sendOAuth2PostRequest(newUrl.encodedQuery(),
+            sendOAuth2PostRequest(newUrl,
                                   GrantType::UserBasic);
         }
         else if (url.hasQueryItem(ASSERTION_TYPE) && url.hasQueryItem(ASSERTION)) {
             QString assertion_type = url.queryItemValue(ASSERTION_TYPE);
             QString assertion = url.queryItemValue(ASSERTION);
             newUrl.addQueryItem(GRANT_TYPE, ASSERTION);
-            newUrl.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
-            newUrl.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
             newUrl.addQueryItem(ASSERTION_TYPE, assertion_type);
             newUrl.addQueryItem(ASSERTION, assertion);
-            sendOAuth2PostRequest(newUrl.encodedQuery(),
+            sendOAuth2PostRequest(newUrl,
                                   GrantType::Assertion);
         }
         else if (url.hasQueryItem(REFRESH_TOKEN)) {
@@ -569,15 +563,11 @@ void OAuth2Plugin::refreshOAuth2Token(const QString &refreshToken)
     TRACE() << refreshToken;
     QUrl url;
     url.addQueryItem(GRANT_TYPE, REFRESH_TOKEN);
-    url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
-    if (!d->m_oauth2Data.ClientSecret().isEmpty()) {
-        url.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
-    }
     url.addQueryItem(REFRESH_TOKEN, refreshToken);
-    sendOAuth2PostRequest(url.encodedQuery(), GrantType::RefreshToken);
+    sendOAuth2PostRequest(url, GrantType::RefreshToken);
 }
 
-void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData,
+void OAuth2Plugin::sendOAuth2PostRequest(QUrl &postData,
                                          GrantType::e grantType)
 {
     Q_D(OAuth2Plugin);
@@ -589,10 +579,26 @@ void OAuth2Plugin::sendOAuth2PostRequest(const QByteArray &postData,
     QNetworkRequest request(url);
     request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
 
+    if (!d->m_oauth2Data.ClientSecret().isEmpty()) {
+        if (d->m_oauth2Data.ForceClientAuthViaRequestBody()) {
+            postData.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+            postData.addQueryItem(CLIENT_SECRET, d->m_oauth2Data.ClientSecret());
+        } else {
+            QByteArray authorization =
+                QUrl::toPercentEncoding(d->m_oauth2Data.ClientId()) + ":" +
+                QUrl::toPercentEncoding(d->m_oauth2Data.ClientSecret());
+            QByteArray basicAuthorization =
+                QByteArray("Basic ") + authorization.toBase64();
+            request.setRawHeader("Authorization", basicAuthorization);
+        }
+    } else {
+        postData.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
+    }
+
     d->m_grantType = grantType;
 
     TRACE() << "Query string = " << postData;
-    postRequest(request, postData);
+    postRequest(request, postData.encodedQuery());
 }
 
 void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
