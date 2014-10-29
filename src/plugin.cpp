@@ -39,7 +39,7 @@ SIGNON_DECL_AUTH_PLUGIN(Plugin)
 Plugin::Plugin(QObject *parent):
     AuthPluginInterface(parent),
     impl(0),
-    m_networkAccessManager(new QNetworkAccessManager(this))
+    m_networkAccessManager(0)
 {
     TRACE();
 }
@@ -74,6 +74,10 @@ void Plugin::process(const SignOn::SessionData &inData,
                            const QString &mechanism)
 {
     if (impl != 0) delete impl;
+
+    if (!m_networkAccessManager) {
+        m_networkAccessManager = new QNetworkAccessManager(this);
+    }
 
     if (OAuth1Plugin::mechanisms().contains(mechanism)) {
         impl = new OAuth1Plugin(this);
