@@ -27,7 +27,11 @@
 #ifdef TRACE
 #undef TRACE
 #endif
+#ifdef SIGNON_TRACE
 #define TRACE() qDebug() << __FILE__ << __LINE__ << __func__ << ":"
+#else
+#define TRACE() if (0) qDebug()
+#endif
 
 #define QT_DISABLE_DEPRECATED_BEFORE QT_VERSION_CHECK(4, 0, 0)
 
