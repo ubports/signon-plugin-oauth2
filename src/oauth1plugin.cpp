@@ -224,6 +224,7 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
     }
 
     d->m_mechanism = mechanism;
+    d->m_oauth1Data = inData.data<OAuth1PluginData>();
     d->m_key = inData.data<OAuth1PluginData>().ConsumerKey();
 
     //get stored data
@@ -237,6 +238,15 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
         tokens.setTokens(d->m_tokens);
         emit store(tokens);
         TRACE() << d->m_tokens;
+    } else if (d->m_oauth1Data.ForceTokenRefresh()) {
+        // remove only the access token, not the refresh token
+        QVariantMap storedData = d->m_tokens.value(d->m_key).toMap();
+        storedData.remove(OAUTH_TOKEN);
+        d->m_tokens.insert(d->m_key, storedData);
+        OAuth2TokenData tokens;
+        tokens.setTokens(d->m_tokens);
+        Q_EMIT store(tokens);
+        TRACE() << "Clearing access token" << d->m_tokens;
     }
 
     //get provided token data if specified
@@ -289,7 +299,6 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
     d->m_oauth1TokenSecret.clear();
     d->m_oauth1TokenVerifier.clear();
     d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
-    d->m_oauth1Data = inData.data<OAuth1PluginData>();
     d->m_oauth1RequestType = OAUTH1_POST_REQUEST_TOKEN;
     if (!d->m_oauth1Data.UserName().isEmpty()) {
         d->m_oauth1ScreenName = d->m_oauth1Data.UserName();

@@ -383,6 +383,13 @@ void OAuth2PluginTest::testPluginProcess_data()
         -1 <<
         QString() << response << QVariantMap();
 
+    webServerData.setForceTokenRefresh(true);
+    QTest::newRow("force token refresh, without refresh token") <<
+        "web_server" <<
+        webServerData.toMap() <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
+
     /* test the ProvidedTokens semantics */
     OAuth2PluginData providedTokensWebServerData;
     providedTokensWebServerData.setHost("https://localhost");
@@ -538,6 +545,16 @@ void OAuth2PluginTest::testPluginHmacSha1Process_data()
         -1 <<
         QString("UI request received") << QVariantMap() << QVariantMap();
     hmacSha1Data.m_data.remove("UiPolicy");
+
+    hmacSha1Data.setForceTokenRefresh(true);
+    QTest::newRow("cached tokens, force refresh") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "text/plain" <<
+        "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
+    hmacSha1Data.setForceTokenRefresh(false);
 
     token.insert("timestamp", QDateTime::currentDateTime().toTime_t() - 50000);
     token.insert("Expiry", (uint)100);
@@ -1241,9 +1258,11 @@ void OAuth2PluginTest::testOAuth2Errors()
     delete nam;
 }
 
-void OAuth2PluginTest::testRefreshToken()
+void OAuth2PluginTest::testRefreshToken_data()
 {
-    SignOn::UiSessionData info;
+    QTest::addColumn<QVariantMap>("sessionData");
+    QTest::addColumn<QVariantMap>("expectedResponse");
+
     OAuth2PluginData data;
     data.setHost("localhost");
     data.setAuthPath("authorize");
@@ -1252,8 +1271,6 @@ void OAuth2PluginTest::testRefreshToken()
     data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
     data.setRedirectUri("http://localhost/resp.html");
 
-    /* Pretend that we have stored an expired access token, but have a refresh
-     * token */
     QVariantMap tokens;
     QVariantMap token;
     token.insert("Token", QLatin1String("tokenfromtest"));
@@ -1262,6 +1279,28 @@ void OAuth2PluginTest::testRefreshToken()
     token.insert("refresh_token", QString("r3fr3sh"));
     tokens.insert(data.ClientId(), QVariant::fromValue(token));
     data.m_data.insert("Tokens", tokens);
+
+    QVariantMap response;
+    response.insert("AccessToken", "n3w-t0k3n");
+    response.insert("ExpiresIn", 3600);
+    response.insert("RefreshToken", QString());
+
+    QTest::newRow("expired access token") << data.toMap() << response;
+
+    token.insert("timestamp", QDateTime::currentDateTime().toTime_t());
+    token.insert("Expiry", 50000);
+    tokens.insert(data.ClientId(), QVariant::fromValue(token));
+    data.m_data.insert("Tokens", tokens);
+    data.setForceTokenRefresh(true);
+    QTest::newRow("valid access token, force refresh") << data.toMap() << response;
+}
+
+void OAuth2PluginTest::testRefreshToken()
+{
+    QFETCH(QVariantMap, sessionData);
+    QFETCH(QVariantMap, expectedResponse);
+
+    SignOn::UiSessionData info;
 
     QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
                   this, SLOT(result(const SignOn::SessionData&)),
@@ -1282,7 +1321,7 @@ void OAuth2PluginTest::testRefreshToken()
     reply->setContent("{ \"access_token\":\"n3w-t0k3n\", \"expires_in\": 3600 }");
     nam->setNextReply(reply);
 
-    m_testPlugin->process(data, QString("web_server"));
+    m_testPlugin->process(sessionData, QString("web_server"));
     m_loop.exec();
 
     QCOMPARE(m_error.type(), -1);
@@ -1290,10 +1329,6 @@ void OAuth2PluginTest::testRefreshToken()
     QCOMPARE(QString::fromUtf8(nam->m_lastRequestData),
              QString("grant_type=refresh_token&refresh_token=r3fr3sh"));
 
-    QVariantMap expectedResponse;
-    expectedResponse.insert("AccessToken", "n3w-t0k3n");
-    expectedResponse.insert("ExpiresIn", 3600);
-    expectedResponse.insert("RefreshToken", QString());
     QCOMPARE(m_response.toMap(), expectedResponse);
 
     delete nam;

@@ -265,6 +265,15 @@ void OAuth2Plugin::process(const SignOn::SessionData &inData,
         tokens.setTokens(d->m_tokens);
         emit store(tokens);
         TRACE() << d->m_tokens;
+    } else if (d->m_oauth2Data.ForceTokenRefresh()) {
+        // remove only the access token, not the refresh token
+        QVariantMap storedData = d->m_tokens.value(d->m_key).toMap();
+        storedData.remove(TOKEN);
+        d->m_tokens.insert(d->m_key, storedData);
+        OAuth2TokenData tokens;
+        tokens.setTokens(d->m_tokens);
+        Q_EMIT store(tokens);
+        TRACE() << "Clearing access token" << d->m_tokens;
     }
 
     //get provided token data if specified
