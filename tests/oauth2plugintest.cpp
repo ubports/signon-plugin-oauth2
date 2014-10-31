@@ -461,6 +461,7 @@ void OAuth2PluginTest::testPluginHmacSha1Process_data()
     hmacSha1Data.setCallback("https://localhost/connect/login_success.html");
     hmacSha1Data.setConsumerKey("104660106251471");
     hmacSha1Data.setConsumerSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    hmacSha1Data.setRealm("MyHost");
 
     QTest::newRow("invalid mechanism") <<
         "ANONYMOUS" <<
@@ -482,6 +483,14 @@ void OAuth2PluginTest::testPluginHmacSha1Process_data()
     hmacSha1Data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
     QTest::newRow("ui-request, HMAC-SHA1") <<
         "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "text/plain" <<
+        "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
+
+    QTest::newRow("ui-request, PLAINTEXT") <<
+        "PLAINTEXT" <<
         hmacSha1Data.toMap() <<
         int(200) << "text/plain" <<
         "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
@@ -520,6 +529,28 @@ void OAuth2PluginTest::testPluginHmacSha1Process_data()
         -1 <<
         QString() << response << QVariantMap();
 
+    hmacSha1Data.m_data.insert("UiPolicy", RequestPasswordPolicy);
+    QTest::newRow("cached tokens, request password policy") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "text/plain" <<
+        "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
+    hmacSha1Data.m_data.remove("UiPolicy");
+
+    token.insert("timestamp", QDateTime::currentDateTime().toTime_t() - 50000);
+    token.insert("Expiry", (uint)100);
+    tokens.insert(hmacSha1Data.ConsumerKey(), QVariant::fromValue(token));
+    hmacSha1Data.m_data.insert(QLatin1String("Tokens"), tokens);
+    QTest::newRow("cached tokens, expired") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "text/plain" <<
+        "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
+
     /* test the ProvidedTokens semantics */
     OAuth1PluginData providedTokensHmacSha1Data;
     providedTokensHmacSha1Data.setRequestEndpoint("https://localhost/oauth/request_token");
@@ -532,6 +563,7 @@ void OAuth2PluginTest::testPluginHmacSha1Process_data()
     providedTokens.insert("AccessToken", "providedhmactokenfromtest");
     providedTokens.insert("TokenSecret", "providedhmacsecretfromtest");
     providedTokens.insert("ScreenName", "providedhmacscreennamefromtest");
+    providedTokens.insert("UserId", "providedUserId");
 
     // try providing tokens to be stored
     providedTokensHmacSha1Data.m_data.insert("ProvidedTokens", providedTokens);
@@ -548,6 +580,55 @@ void OAuth2PluginTest::testPluginHmacSha1Process_data()
         int(200) << "" << "" <<
         -1 <<
         QString() << providedTokens << stored;
+
+    QTest::newRow("http error 401") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(401) << "text/plain" <<
+        "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
+        int(Error::OperationFailed) <<
+        QString() << QVariantMap() << QVariantMap();
+
+    QTest::newRow("no content returned") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "" << "" <<
+        int(Error::OperationFailed) <<
+        QString() << QVariantMap() << QVariantMap();
+
+    QTest::newRow("no token returned") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "text/plain" <<
+        "oauth_token=HiThere" <<
+        int(Error::OperationFailed) <<
+        QString() << QVariantMap() << QVariantMap();
+
+    /* Test handling of oauth_problem; this is a non standard extension:
+     * http://wiki.oauth.net/w/page/12238543/ProblemReporting
+     * https://developer.yahoo.com/oauth/guide/oauth-errors.html
+     */
+    QTest::newRow("problem user_refused") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(400) << "text/plain" <<
+        "oauth_problem=user_refused" <<
+        int(Error::PermissionDenied) <<
+        QString() << QVariantMap() << QVariantMap();
+    QTest::newRow("problem permission_denied") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(400) << "text/plain" <<
+        "oauth_problem=permission_denied" <<
+        int(Error::PermissionDenied) <<
+        QString() << QVariantMap() << QVariantMap();
+    QTest::newRow("problem signature_invalid") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(400) << "text/plain" <<
+        "oauth_problem=signature_invalid" <<
+        int(Error::OperationFailed) <<
+        QString() << QVariantMap() << QVariantMap();
 }
 
 void OAuth2PluginTest::testPluginHmacSha1Process()
@@ -891,6 +972,180 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
     QCOMPARE(nam->m_lastRequest.url(), QUrl(postUrl));
     QCOMPARE(QString::fromUtf8(nam->m_lastRequestData), postContents);
     QCOMPARE(m_response.toMap(), response);
+
+    delete nam;
+}
+
+void OAuth2PluginTest::testOauth1UserActionFinished_data()
+{
+    QTest::addColumn<QString>("mechanism");
+    QTest::addColumn<QString>("urlResponse");
+    QTest::addColumn<int>("errorCode");
+    QTest::addColumn<QVariantMap>("expectedAuthMap");
+    QTest::addColumn<int>("replyStatusCode");
+    QTest::addColumn<QString>("replyContentType");
+    QTest::addColumn<QString>("replyContents");
+    QTest::addColumn<QVariantMap>("response");
+
+    QTest::newRow("empty data") <<
+        "HMAC-SHA1" <<
+        "" <<
+        int(Error::NotAuthorized) <<
+        QVariantMap() << 0 << "" << "" << QVariantMap();
+
+    QTest::newRow("auth error") <<
+        "HMAC-SHA1" <<
+        "http://localhost/resp.html?error=permission_denied" <<
+        int(Error::NotAuthorized) <<
+        QVariantMap() << 0 << "" << "" << QVariantMap();
+
+    QTest::newRow("auth problem") <<
+        "HMAC-SHA1" <<
+        "http://localhost/resp.html?oauth_problem=permission_denied" <<
+        int(Error::PermissionDenied) <<
+        QVariantMap() << 0 << "" << "" << QVariantMap();
+
+    QVariantMap authMap;
+    authMap.insert("oauth_verifier", QString("v3r1f13r"));
+    authMap.insert("oauth_token", QString("HiThere"));
+    QTest::newRow("http error 401") <<
+        "HMAC-SHA1" <<
+        "http://localhost/resp.html?oauth_verifier=v3r1f13r" <<
+        int(Error::OperationFailed) <<
+        authMap <<
+        int(401) <<
+        "text/plain" <<
+        "something else" <<
+        QVariantMap();
+
+    QTest::newRow("empty reply") <<
+        "HMAC-SHA1" <<
+        "http://localhost/resp.html?oauth_verifier=v3r1f13r" <<
+        int(Error::OperationFailed) <<
+        authMap <<
+        int(200) <<
+        "text/plain" <<
+        "" <<
+        QVariantMap();
+
+    QTest::newRow("missing secret") <<
+        "HMAC-SHA1" <<
+        "http://localhost/resp.html?oauth_verifier=v3r1f13r" <<
+        int(Error::OperationFailed) <<
+        authMap <<
+        int(200) <<
+        "text/plain" <<
+        "oauth_token=t0k3n" <<
+        QVariantMap();
+
+    QVariantMap response;
+    response.insert("AccessToken", QString("t0k3n"));
+    response.insert("TokenSecret", QString("t0k3nS3cr3t"));
+
+    QTest::newRow("success") <<
+        "HMAC-SHA1" <<
+        "http://localhost/resp.html?oauth_verifier=v3r1f13r" <<
+        int(-1) <<
+        authMap <<
+        int(200) <<
+        "text/plain" <<
+        "oauth_token=t0k3n&oauth_token_secret=t0k3nS3cr3t" <<
+        response;
+
+    response.insert("ExtraField", QString("v4lu3"));
+    QTest::newRow("success with data") <<
+        "HMAC-SHA1" <<
+        "http://localhost/resp.html?oauth_verifier=v3r1f13r" <<
+        int(-1) <<
+        authMap <<
+        int(200) <<
+        "text/plain" <<
+        "oauth_token=t0k3n&oauth_token_secret=t0k3nS3cr3t"
+        "&ExtraField=v4lu3" <<
+        response;
+}
+
+void OAuth2PluginTest::testOauth1UserActionFinished()
+{
+    QFETCH(QString, mechanism);
+    QFETCH(QString, urlResponse);
+    QFETCH(int, errorCode);
+    QFETCH(QVariantMap, expectedAuthMap);
+    QFETCH(int, replyStatusCode);
+    QFETCH(QString, replyContentType);
+    QFETCH(QString, replyContents);
+    QFETCH(QVariantMap, response);
+
+    SignOn::UiSessionData info;
+    OAuth1PluginData data;
+    data.setRequestEndpoint("https://localhost/oauth/request_token");
+    data.setTokenEndpoint("https://localhost/oauth/access_token");
+    data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
+    data.setCallback("http://localhost/resp.html");
+    data.setConsumerKey("104660106251471");
+    data.setConsumerSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    data.setRealm("MyHost");
+
+    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
+                  this,  SLOT(result(const SignOn::SessionData&)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
+                  this,  SLOT(pluginError(const SignOn::Error &)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
+                  this,  SLOT(uiRequest(const SignOn::UiSessionData&)),Qt::QueuedConnection);
+    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    reply->setStatusCode(200);
+    reply->setContentType("text/plain");
+    reply->setContent("oauth_token=HiThere&oauth_token_secret=BigSecret");
+    nam->setNextReply(reply);
+
+    m_testPlugin->process(data, mechanism);
+    m_loop.exec();
+    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
+
+    nam->m_lastRequest = QNetworkRequest();
+    nam->m_lastRequestData = QByteArray();
+
+    reply = new TestNetworkReply(this);
+    reply->setStatusCode(replyStatusCode);
+    if (!replyContentType.isEmpty()) {
+        reply->setContentType(replyContentType);
+    }
+    reply->setContent(replyContents.toUtf8());
+    nam->setNextReply(reply);
+
+    if (!urlResponse.isEmpty()) {
+        info.setUrlResponse(urlResponse);
+    }
+
+    m_testPlugin->userActionFinished(info);
+    m_loop.exec();
+
+    QCOMPARE(m_error.type(), errorCode);
+    if (!expectedAuthMap.isEmpty()) {
+        QCOMPARE(nam->m_lastRequest.url().toString(), data.TokenEndpoint());
+        QVERIFY(nam->m_lastRequestData.isEmpty());
+
+        QString authorizationHeader =
+            QString::fromUtf8(nam->m_lastRequest.rawHeader("Authorization"));
+        QStringList authorizationHeaderParts =
+            authorizationHeader.split(QRegExp(",?\\s+"));
+        QCOMPARE(authorizationHeaderParts[0], QString("OAuth"));
+
+        /* The rest of the header should be a mapping, let's parse it */
+        bool ok = true;
+        QVariantMap authMap =
+            parseAuthorizationHeader(authorizationHeaderParts.mid(1), &ok);
+        QVERIFY(ok);
+        QCOMPARE(authMap.value("oauth_signature_method").toString(), mechanism);
+        QVERIFY(mapIsSubset(expectedAuthMap, authMap));
+    }
+    if (errorCode < 0) {
+        QVERIFY(mapIsSubset(response, m_response.toMap()));
+    }
 
     delete nam;
 }

@@ -60,6 +60,8 @@ private slots:
     void testPluginUseragentUserActionFinished();
     void testPluginWebserverUserActionFinished_data();
     void testPluginWebserverUserActionFinished();
+    void testOauth1UserActionFinished_data();
+    void testOauth1UserActionFinished();
     void testOAuth2Errors_data();
     void testOAuth2Errors();
     void testRefreshToken();
