@@ -139,7 +139,7 @@ QStringList OAuth1Plugin::mechanisms()
     return res;
 }
 
-void OAuth1Plugin::sendOAuth1AuthRequest(const QString &captchaUrl)
+void OAuth1Plugin::sendOAuth1AuthRequest()
 {
     Q_D(OAuth1Plugin);
 
@@ -155,9 +155,6 @@ void OAuth1Plugin::sendOAuth1AuthRequest(const QString &captchaUrl)
     uiSession.setOpenUrl(url.toString());
     if (d->m_oauth1Data.Callback() != "oob")
         uiSession.setFinalUrl(d->m_oauth1Data.Callback());
-    if (!captchaUrl.isEmpty()) {
-        uiSession.setCaptchaUrl(captchaUrl);
-    }
 
     /* add username and password, for fields initialization (the
      * decision on whether to actually use them is up to the signon UI */
