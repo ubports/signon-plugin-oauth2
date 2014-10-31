@@ -1,3 +1,13 @@
+signon-plugin-oauth2 (0.20+15.04.20141031-0ubuntu1) vivid; urgency=low
+
+  [ Ubuntu daily release ]
+  * New rebuild forced
+
+  [ Alberto Mardegan ]
+  * Delay instantiation of QNetworkAccessManager (LP: #1377181)
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Fri, 31 Oct 2014 12:03:40 +0000
+
 signon-plugin-oauth2 (0.20+14.10.20140912.1-0ubuntu1) utopic; urgency=medium
 
   [ Alberto Mardegan ]
