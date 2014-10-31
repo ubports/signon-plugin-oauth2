@@ -542,11 +542,11 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
             || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_HTML))
             || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN))) {
 
-            QMap<QString,QString> map = parseTextReply(replyContent);
+            const QMap<QString,QString> map = parseTextReply(replyContent);
             if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
                 // Extracting the request token, token secret
-                d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
-                d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
+                d->m_oauth1Token = map.value(OAUTH_TOKEN).toAscii();
+                d->m_oauth1TokenSecret = map.value(OAUTH_TOKEN_SECRET).toAscii();
                 if (d->m_oauth1Token.isEmpty() ||
                     !map.contains(OAUTH_TOKEN_SECRET)) {
                     TRACE() << "OAuth request token is empty or secret is missing";
@@ -558,8 +558,8 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
             }
             else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
                 // Extracting the access token
-                d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
-                d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
+                d->m_oauth1Token = map.value(OAUTH_TOKEN).toAscii();
+                d->m_oauth1TokenSecret = map.value(OAUTH_TOKEN_SECRET).toAscii();
                 if (d->m_oauth1Token.isEmpty() ||
                     !map.contains(OAUTH_TOKEN_SECRET)) {
                     TRACE()<< "OAuth access token is empty or secret is missing";
@@ -567,7 +567,7 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
                 }
                 else {
                     QVariantMap siteResponse;
-                    QMap<QString, QString>::iterator i;
+                    QMap<QString, QString>::const_iterator i;
                     for (i = map.begin(); i != map.end(); i++) {
                         siteResponse.insert(i.key(), i.value());
                     }
