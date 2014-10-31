@@ -24,6 +24,7 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPointer>
+#include <QRegExp>
 #include <QTimer>
 #include <QtTest/QtTest>
 
@@ -36,6 +37,53 @@
 
 using namespace OAuth2PluginNS;
 using namespace SignOn;
+
+static bool mapIsSubset(const QVariantMap &set, const QVariantMap &test)
+{
+    QMapIterator<QString, QVariant> it(set);
+    while (it.hasNext()) {
+        it.next();
+        if (QMetaType::Type(it.value().type()) == QMetaType::QVariantMap) {
+            if (!mapIsSubset(it.value().toMap(),
+                             test.value(it.key()).toMap())) {
+                return false;
+            }
+        } else if (test.value(it.key()) != it.value()) {
+            qDebug() << "Maps differ: expected" << it.value() <<
+                "but found" << test.value(it.key());
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static QVariantMap parseAuthorizationHeader(const QStringList &parts, bool *ok)
+{
+    QVariantMap map;
+    *ok = true;
+
+    Q_FOREACH(const QString &part, parts) {
+        int equalPos = part.indexOf("=");
+        if (equalPos < 0) {
+            qDebug() << "Invalid authorization header" << part;
+            *ok = false;
+            return map;
+        }
+        QString key = part.left(equalPos);
+        QString escapedValue = part.mid(equalPos + 1);
+        if (!escapedValue.startsWith('"') || !escapedValue.endsWith('"')) {
+            qDebug() << "Authorization header string not quoted!" << part;
+            *ok = false;
+            return map;
+        }
+
+        QString value = escapedValue.mid(1, escapedValue.length() - 2);
+        map.insert(key, value);
+    }
+
+    return map;
+}
 
 class TestNetworkReply: public QNetworkReply
 {
@@ -137,7 +185,9 @@ void OAuth2PluginTest::cleanupTestCase()
 void OAuth2PluginTest::init()
 {
     m_testPlugin = new Plugin();
+    m_stored = SignOn::SessionData();
     m_response = SignOn::SessionData();
+    m_uiResponse = SignOn::UiSessionData();
     m_error = SignOn::Error(-1);
 }
 
@@ -229,8 +279,15 @@ void OAuth2PluginTest::testPluginCancel()
     QCOMPARE(m_error.type(), int(Error::SessionCanceled));
 }
 
-void OAuth2PluginTest::testPluginProcess()
+void OAuth2PluginTest::testPluginProcess_data()
 {
+    QTest::addColumn<QString>("mechanism");
+    QTest::addColumn<QVariantMap>("sessionData");
+    QTest::addColumn<int>("errorCode");
+    QTest::addColumn<QString>("urlResponse");
+    QTest::addColumn<QVariantMap>("response");
+    QTest::addColumn<QVariantMap>("stored");
+
     OAuth2PluginData userAgentData;
     userAgentData.setHost("https://localhost");
     userAgentData.setTokenPath("access_token");
@@ -238,25 +295,17 @@ void OAuth2PluginTest::testPluginProcess()
     userAgentData.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
     userAgentData.setRedirectUri("http://localhost/connect/login_success.html");
 
-    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
-                  this,  SLOT(result(const SignOn::SessionData&)),Qt::QueuedConnection);
-    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
-                  this,  SLOT(pluginError(const SignOn::Error &)),Qt::QueuedConnection);
-    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
-                  this,  SLOT(uiRequest(const SignOn::UiSessionData&)),Qt::QueuedConnection);
-    QObject::connect(m_testPlugin, SIGNAL(store(const SignOn::SessionData&)),
-                  this,  SLOT(store(const SignOn::SessionData&)),Qt::QueuedConnection);
-    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+    QTest::newRow("invalid mechanism") <<
+        "ANONYMOUS" <<
+        userAgentData.toMap() <<
+        int(Error::MechanismNotAvailable) <<
+        QString() << QVariantMap() << QVariantMap();
 
-    // Invalid mechanism
-    m_testPlugin->process(userAgentData, QString("ANONYMOUS"));
-    m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::MechanismNotAvailable));
-
-    //try without params
-    m_testPlugin->process(userAgentData, QString("user_agent"));
-    m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::MissingData));
+    QTest::newRow("without params, user_agent") <<
+        "user_agent" <<
+        userAgentData.toMap() <<
+        int(Error::MissingData) <<
+        QString() << QVariantMap() << QVariantMap();
 
     OAuth2PluginData webServerData;
     webServerData.setHost("https://localhost");
@@ -266,72 +315,73 @@ void OAuth2PluginTest::testPluginProcess()
     webServerData.setRedirectUri("http://localhost/connect/login_success.html");
     webServerData.setScope(QStringList() << "scope1" << "scope2");
 
-    //try without params
-    m_testPlugin->process(webServerData, QString("web_server"));
-    m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::MissingData));
+    QTest::newRow("without params, web_server") <<
+        "web_server" <<
+        webServerData.toMap() <<
+        int(Error::MissingData) <<
+        QString() << QVariantMap() << QVariantMap();
 
-    // Check for signon UI request for user_agent
     userAgentData.setAuthPath("authorize");
-    m_testPlugin->process(userAgentData, QString("user_agent"));
-    m_loop.exec();
-    qDebug() << "Data = " << m_uiResponse.UrlResponse();
-    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
+    QTest::newRow("ui-request, user_agent") <<
+        "user_agent" <<
+        userAgentData.toMap() <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
 
-    // Check for signon UI request for web_server
-    m_uiResponse.setUrlResponse(QString(""));
     webServerData.setTokenPath("token");
-    m_testPlugin->process(userAgentData, QString("web_server"));
-    m_loop.exec();
-    qDebug() << "Data = " << m_uiResponse.UrlResponse();
-    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
+    QTest::newRow("ui-request, web_server") <<
+        "web_server" <<
+        webServerData.toMap() <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
 
-    // Check using stored responses
     QVariantMap tokens;
     QVariantMap token;
     token.insert("Token", QLatin1String("tokenfromtest"));
     token.insert("Token2", QLatin1String("token2fromtest"));
     token.insert("timestamp", QDateTime::currentDateTime().toTime_t());
     token.insert("Expiry", 10000);
-    tokens.insert( QLatin1String("invalidid"), QVariant::fromValue(token));
+    tokens.insert(QLatin1String("invalidid"), QVariant::fromValue(token));
     webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
 
-    //try without params
-    m_testPlugin->process(webServerData, QString("web_server"));
-    m_loop.exec();
-    OAuth2PluginTokenData resp = m_response.data<OAuth2PluginTokenData>();
-    QVERIFY(resp.AccessToken() != QLatin1String("tokenfromtest"));
-    QCOMPARE(m_error.type(), int(Error::MissingData));
+    QTest::newRow("stored response, without params") <<
+        "web_server" <<
+        webServerData.toMap() <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
 
-    tokens.insert( webServerData.ClientId(), QVariant::fromValue(token));
+    tokens.insert(webServerData.ClientId(), QVariant::fromValue(token));
     webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
 
-    /* try with missing cached scopes */
-    m_testPlugin->process(webServerData, QString("web_server"));
-    m_loop.exec();
-    resp = m_response.data<OAuth2PluginTokenData>();
-    QVERIFY(resp.AccessToken() != QLatin1String("tokenfromtest"));
-    QCOMPARE(m_error.type(), int(Error::MissingData));
+    QTest::newRow("stored response, missing cached scopes") <<
+        "web_server" <<
+        webServerData.toMap() <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
 
-    /* try with incomplete cached scopes */
     token.insert("Scopes", QStringList("scope2"));
     tokens.insert(webServerData.ClientId(), QVariant::fromValue(token));
     webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
-    m_testPlugin->process(webServerData, QString("web_server"));
-    m_loop.exec();
-    resp = m_response.data<OAuth2PluginTokenData>();
-    QVERIFY(resp.AccessToken() != QLatin1String("tokenfromtest"));
-    QCOMPARE(m_error.type(), int(Error::MissingData));
 
-    /* try with sufficient cached scopes */
+    QTest::newRow("stored response, incomplete cached scopes") <<
+        "web_server" <<
+        webServerData.toMap() <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
+
     token.insert("Scopes",
                  QStringList() << "scope1" << "scope3" << "scope2");
     tokens.insert(webServerData.ClientId(), QVariant::fromValue(token));
     webServerData.m_data.insert(QLatin1String("Tokens"), tokens);
-    m_testPlugin->process(webServerData, QString("web_server"));
-    m_loop.exec();
-    resp = m_response.data<OAuth2PluginTokenData>();
-    QCOMPARE(resp.AccessToken(), QLatin1String("tokenfromtest"));
+    QVariantMap response;
+    response.insert("AccessToken", QLatin1String("tokenfromtest"));
+    response.insert("ExpiresIn", int(10000));
+
+    QTest::newRow("stored response, sufficient cached scopes") <<
+        "web_server" <<
+        webServerData.toMap() <<
+        -1 <<
+        QString() << response << QVariantMap();
 
     /* test the ProvidedTokens semantics */
     OAuth2PluginData providedTokensWebServerData;
@@ -348,37 +398,29 @@ void OAuth2PluginTest::testPluginProcess()
     providedTokens.insert("ExpiresIn", 12345);
 
     /* try providing tokens to be stored */
-    m_stored = SignOn::SessionData(QVariantMap());
-    m_response = SignOn::SessionData(QVariantMap());
     providedTokensWebServerData.m_data.insert("ProvidedTokens", providedTokens);
-    m_testPlugin->process(providedTokensWebServerData, QString("web_server"));
-    m_loop.exec();
-    resp = m_response.data<OAuth2PluginTokenData>();
-    QCOMPARE(resp.AccessToken(), QLatin1String("providedtokenfromtest"));
-    QVariantMap storedTokens = m_stored.getProperty("Tokens").toMap();
-    QVariantMap storedTokensForKey = storedTokens.value(providedTokensWebServerData.ClientId()).toMap();
-    QCOMPARE(storedTokensForKey.value("Token"), providedTokens.value("AccessToken"));
-    QCOMPARE(storedTokensForKey.value("refresh_token"), providedTokens.value("RefreshToken"));
-
-    /* ensure that subsequent requests return the provided tokens */
-    m_response = SignOn::SessionData(QVariantMap());
-    providedTokensWebServerData.m_data.insert("ProvidedTokens", QVariantMap());
-    providedTokensWebServerData.m_data.insert("Tokens", storedTokens);
-    m_testPlugin->process(providedTokensWebServerData, QString("web_server"));
-    m_loop.exec();
-    resp = m_response.data<OAuth2PluginTokenData>();
-    QCOMPARE(resp.AccessToken(), QLatin1String("providedtokenfromtest"));
+    QVariantMap storedTokensForKey;
+    storedTokensForKey.insert("Token", providedTokens.value("AccessToken"));
+    storedTokensForKey.insert("refresh_token", providedTokens.value("RefreshToken"));
+    QVariantMap storedTokens;
+    storedTokens.insert(providedTokensWebServerData.ClientId(), storedTokensForKey);
+    QVariantMap stored;
+    stored.insert("Tokens", storedTokens);
+    QTest::newRow("provided tokens") <<
+        "web_server" <<
+        providedTokensWebServerData.toMap() <<
+        -1 <<
+        QString() << providedTokens << stored;
 }
 
-void OAuth2PluginTest::testPluginHmacSha1Process()
+void OAuth2PluginTest::testPluginProcess()
 {
-    OAuth1PluginData hmacSha1Data;
-    hmacSha1Data.setRequestEndpoint("https://localhost/oauth/request_token");
-    hmacSha1Data.setTokenEndpoint("https://localhost/oauth/access_token");
-    hmacSha1Data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
-    hmacSha1Data.setCallback("https://localhost/connect/login_success.html");
-    hmacSha1Data.setConsumerKey("104660106251471");
-    hmacSha1Data.setConsumerSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    QFETCH(QString, mechanism);
+    QFETCH(QVariantMap, sessionData);
+    QFETCH(int, errorCode);
+    QFETCH(QString, urlResponse);
+    QFETCH(QVariantMap, response);
+    QFETCH(QVariantMap, stored);
 
     QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
                   this,  SLOT(result(const SignOn::SessionData&)),Qt::QueuedConnection);
@@ -390,23 +432,61 @@ void OAuth2PluginTest::testPluginHmacSha1Process()
                   this,  SLOT(store(const SignOn::SessionData&)),Qt::QueuedConnection);
     QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
 
-    // Invalid mechanism
-    m_testPlugin->process(hmacSha1Data, QString("ANONYMOUS"));
+    m_testPlugin->process(sessionData, mechanism);
     m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::MechanismNotAvailable));
+    QCOMPARE(m_error.type(), errorCode);
+    if (errorCode < 0) {
+        QCOMPARE(m_uiResponse.UrlResponse(), urlResponse);
+        QCOMPARE(m_response.toMap(), response);
+        QVERIFY(mapIsSubset(stored, m_stored.toMap()));
+    }
+}
+
+void OAuth2PluginTest::testPluginHmacSha1Process_data()
+{
+    QTest::addColumn<QString>("mechanism");
+    QTest::addColumn<QVariantMap>("sessionData");
+    QTest::addColumn<int>("replyStatusCode");
+    QTest::addColumn<QString>("replyContentType");
+    QTest::addColumn<QString>("replyContents");
+    QTest::addColumn<int>("errorCode");
+    QTest::addColumn<QString>("urlResponse");
+    QTest::addColumn<QVariantMap>("response");
+    QTest::addColumn<QVariantMap>("stored");
+
+    OAuth1PluginData hmacSha1Data;
+    hmacSha1Data.setRequestEndpoint("https://localhost/oauth/request_token");
+    hmacSha1Data.setTokenEndpoint("https://localhost/oauth/access_token");
+    hmacSha1Data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
+    hmacSha1Data.setCallback("https://localhost/connect/login_success.html");
+    hmacSha1Data.setConsumerKey("104660106251471");
+    hmacSha1Data.setConsumerSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+
+    QTest::newRow("invalid mechanism") <<
+        "ANONYMOUS" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "" << "" <<
+        int(Error::MechanismNotAvailable) <<
+        QString() << QVariantMap() << QVariantMap();
 
     // Try without params
     hmacSha1Data.setAuthorizationEndpoint(QString());
-    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
-    m_loop.exec();
-    QCOMPARE(m_error.type(), int(Error::MissingData));
+    QTest::newRow("without params, HMAC-SHA1") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "" << "" <<
+        int(Error::MissingData) <<
+        QString() << QVariantMap() << QVariantMap();
 
     // Check for signon UI request for HMAC-SHA1
     hmacSha1Data.setAuthorizationEndpoint("https://localhost/oauth/authorize");
-    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
-    m_loop.exec();
-    qDebug() << "Data = " << m_uiResponse.UrlResponse();
-    QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
+    QTest::newRow("ui-request, HMAC-SHA1") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "text/plain" <<
+        "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
 
     /* Now store some tokens and test the responses */
     hmacSha1Data.m_data.insert("UiPolicy", NoUserInteractionPolicy);
@@ -420,20 +500,25 @@ void OAuth2PluginTest::testPluginHmacSha1Process()
     hmacSha1Data.m_data.insert(QLatin1String("Tokens"), tokens);
 
     // Try without cached token for our ConsumerKey
-    m_response = SignOn::SessionData(QVariantMap());
-    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
-    m_loop.exec();
-    OAuth1PluginTokenData resp = m_response.data<OAuth1PluginTokenData>();
-    QVERIFY(resp.AccessToken() != QLatin1String("hmactokenfromtest"));
+    QTest::newRow("cached tokens, no ConsumerKey") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "text/plain" <<
+        "oauth_token=HiThere&oauth_token_secret=BigSecret" <<
+        -1 <<
+        QString("UI request received") << QVariantMap() << QVariantMap();
 
     // Ensure that the cached token is returned as required
-    m_response = SignOn::SessionData(QVariantMap());
     tokens.insert(hmacSha1Data.ConsumerKey(), QVariant::fromValue(token));
     hmacSha1Data.m_data.insert(QLatin1String("Tokens"), tokens);
-    m_testPlugin->process(hmacSha1Data, QString("HMAC-SHA1"));
-    m_loop.exec();
-    resp = m_response.data<OAuth1PluginTokenData>();
-    QCOMPARE(resp.AccessToken(), QLatin1String("hmactokenfromtest"));
+    QVariantMap response;
+    response.insert("AccessToken", QLatin1String("hmactokenfromtest"));
+    QTest::newRow("cached tokens, with ConsumerKey") <<
+        "HMAC-SHA1" <<
+        hmacSha1Data.toMap() <<
+        int(200) << "" << "" <<
+        -1 <<
+        QString() << response << QVariantMap();
 
     /* test the ProvidedTokens semantics */
     OAuth1PluginData providedTokensHmacSha1Data;
@@ -449,27 +534,85 @@ void OAuth2PluginTest::testPluginHmacSha1Process()
     providedTokens.insert("ScreenName", "providedhmacscreennamefromtest");
 
     // try providing tokens to be stored
-    m_stored = SignOn::SessionData(QVariantMap());
-    m_response = SignOn::SessionData(QVariantMap());
     providedTokensHmacSha1Data.m_data.insert("ProvidedTokens", providedTokens);
-    m_testPlugin->process(providedTokensHmacSha1Data, QString("HMAC-SHA1"));
-    m_loop.exec();
-    resp = m_response.data<OAuth1PluginTokenData>();
-    QCOMPARE(resp.AccessToken(), QLatin1String("providedhmactokenfromtest"));
-    QVariantMap storedTokens = m_stored.getProperty("Tokens").toMap();
-    QVariantMap storedTokensForKey = storedTokens.value(providedTokensHmacSha1Data.ConsumerKey()).toMap();
-    QCOMPARE(storedTokensForKey.value("oauth_token"), providedTokens.value("AccessToken"));
-    QCOMPARE(storedTokensForKey.value("oauth_token_secret"), providedTokens.value("TokenSecret"));
+    QVariantMap storedTokensForKey;
+    storedTokensForKey.insert("oauth_token", providedTokens.value("AccessToken"));
+    storedTokensForKey.insert("oauth_token_secret", providedTokens.value("TokenSecret"));
+    QVariantMap storedTokens;
+    storedTokens.insert(providedTokensHmacSha1Data.ConsumerKey(), storedTokensForKey);
+    QVariantMap stored;
+    stored.insert("Tokens", storedTokens);
+    QTest::newRow("provided tokens") <<
+        "HMAC-SHA1" <<
+        providedTokensHmacSha1Data.toMap() <<
+        int(200) << "" << "" <<
+        -1 <<
+        QString() << providedTokens << stored;
+}
 
-    // ensure that subsequent requests return the provided tokens
-    m_response = SignOn::SessionData(QVariantMap());
-    providedTokensHmacSha1Data.m_data.insert("UiPolicy", NoUserInteractionPolicy);
-    providedTokensHmacSha1Data.m_data.insert("ProvidedTokens", QVariantMap());
-    providedTokensHmacSha1Data.m_data.insert("Tokens", storedTokens);
-    m_testPlugin->process(providedTokensHmacSha1Data, QString("HMAC-SHA1"));
+void OAuth2PluginTest::testPluginHmacSha1Process()
+{
+    QFETCH(QString, mechanism);
+    QFETCH(QVariantMap, sessionData);
+    QFETCH(int, replyStatusCode);
+    QFETCH(QString, replyContentType);
+    QFETCH(QString, replyContents);
+    QFETCH(int, errorCode);
+    QFETCH(QString, urlResponse);
+    QFETCH(QVariantMap, response);
+    QFETCH(QVariantMap, stored);
+
+    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
+                  this,  SLOT(result(const SignOn::SessionData&)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
+                  this,  SLOT(pluginError(const SignOn::Error &)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
+                  this,  SLOT(uiRequest(const SignOn::UiSessionData&)),Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(store(const SignOn::SessionData&)),
+                  this,  SLOT(store(const SignOn::SessionData&)),Qt::QueuedConnection);
+    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    reply->setStatusCode(replyStatusCode);
+    if (!replyContentType.isEmpty()) {
+        reply->setContentType(replyContentType);
+    }
+    reply->setContent(replyContents.toUtf8());
+    nam->setNextReply(reply);
+
+    m_testPlugin->process(sessionData, mechanism);
     m_loop.exec();
-    resp = m_response.data<OAuth1PluginTokenData>();
-    QCOMPARE(resp.AccessToken(), QLatin1String("providedhmactokenfromtest"));
+    QCOMPARE(m_error.type(), errorCode);
+    if (errorCode < 0) {
+        /* We don't check the network request if a response was received,
+         * because a response can only be received if a cached token was
+         * found -- and that doesn't cause any network request to be made. */
+        if (m_response.toMap().isEmpty()) {
+            QCOMPARE(nam->m_lastRequest.url(),
+                     sessionData.value("RequestEndpoint").toUrl());
+            QVERIFY(nam->m_lastRequestData.isEmpty());
+
+            /* Check the authorization header */
+            QString authorizationHeader =
+                QString::fromUtf8(nam->m_lastRequest.rawHeader("Authorization"));
+            QStringList authorizationHeaderParts =
+                authorizationHeader.split(QRegExp(",?\\s+"));
+            QCOMPARE(authorizationHeaderParts[0], QString("OAuth"));
+
+            /* The rest of the header should be a mapping, let's parse it */
+            bool ok = true;
+            QVariantMap authMap =
+                parseAuthorizationHeader(authorizationHeaderParts.mid(1), &ok);
+            QVERIFY(ok);
+            QCOMPARE(authMap.value("oauth_signature_method").toString(), mechanism);
+        }
+
+        QCOMPARE(m_uiResponse.UrlResponse(), urlResponse);
+        QVERIFY(mapIsSubset(response, m_response.toMap()));
+        QVERIFY(mapIsSubset(stored, m_stored.toMap()));
+    }
 }
 
 void OAuth2PluginTest::testPluginUseragentUserActionFinished()

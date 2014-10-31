@@ -53,7 +53,9 @@ private slots:
     void testPluginType();
     void testPluginMechanisms();
     void testPluginCancel();
+    void testPluginProcess_data();
     void testPluginProcess();
+    void testPluginHmacSha1Process_data();
     void testPluginHmacSha1Process();
     void testPluginUseragentUserActionFinished();
     void testPluginWebserverUserActionFinished_data();
