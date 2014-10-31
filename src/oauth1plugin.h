@@ -53,7 +53,7 @@ protected:
     void serverReply(QNetworkReply *reply);
 
 private:
-    void sendOAuth1AuthRequest(const QString &captchaUrl = 0);
+    void sendOAuth1AuthRequest();
     bool validateInput(const SignOn::SessionData &inData, const QString &mechanism);
     bool respondWithStoredToken(const QVariantMap &token,
                                 const QString &mechanism);

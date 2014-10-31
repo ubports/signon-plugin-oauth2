@@ -53,13 +53,18 @@ private slots:
     void testPluginType();
     void testPluginMechanisms();
     void testPluginCancel();
+    void testPluginProcess_data();
     void testPluginProcess();
+    void testPluginHmacSha1Process_data();
     void testPluginHmacSha1Process();
     void testPluginUseragentUserActionFinished();
     void testPluginWebserverUserActionFinished_data();
     void testPluginWebserverUserActionFinished();
+    void testOauth1UserActionFinished_data();
+    void testOauth1UserActionFinished();
     void testOAuth2Errors_data();
     void testOAuth2Errors();
+    void testRefreshToken_data();
     void testRefreshToken();
     void testClientAuthentication_data();
     void testClientAuthentication();
