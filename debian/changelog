@@ -1,3 +1,13 @@
+signon-plugin-oauth2 (0.20+15.04.20141110-0ubuntu1) vivid; urgency=low
+
+  [ Ubuntu daily release ]
+  * New rebuild forced
+
+  [ Alberto Mardegan ]
+  * Merge from upstream
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Mon, 10 Nov 2014 09:45:52 +0000
+
 signon-plugin-oauth2 (0.20+15.04.20141031-0ubuntu1) vivid; urgency=low
 
   [ Ubuntu daily release ]
