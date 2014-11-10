@@ -139,7 +139,7 @@ QStringList OAuth1Plugin::mechanisms()
     return res;
 }
 
-void OAuth1Plugin::sendOAuth1AuthRequest(const QString &captchaUrl)
+void OAuth1Plugin::sendOAuth1AuthRequest()
 {
     Q_D(OAuth1Plugin);
 
@@ -155,9 +155,6 @@ void OAuth1Plugin::sendOAuth1AuthRequest(const QString &captchaUrl)
     uiSession.setOpenUrl(url.toString());
     if (d->m_oauth1Data.Callback() != "oob")
         uiSession.setFinalUrl(d->m_oauth1Data.Callback());
-    if (!captchaUrl.isEmpty()) {
-        uiSession.setCaptchaUrl(captchaUrl);
-    }
 
     /* add username and password, for fields initialization (the
      * decision on whether to actually use them is up to the signon UI */
@@ -227,6 +224,7 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
     }
 
     d->m_mechanism = mechanism;
+    d->m_oauth1Data = inData.data<OAuth1PluginData>();
     d->m_key = inData.data<OAuth1PluginData>().ConsumerKey();
 
     //get stored data
@@ -240,6 +238,15 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
         tokens.setTokens(d->m_tokens);
         emit store(tokens);
         TRACE() << d->m_tokens;
+    } else if (d->m_oauth1Data.ForceTokenRefresh()) {
+        // remove only the access token, not the refresh token
+        QVariantMap storedData = d->m_tokens.value(d->m_key).toMap();
+        storedData.remove(OAUTH_TOKEN);
+        d->m_tokens.insert(d->m_key, storedData);
+        OAuth2TokenData tokens;
+        tokens.setTokens(d->m_tokens);
+        Q_EMIT store(tokens);
+        TRACE() << "Clearing access token" << d->m_tokens;
     }
 
     //get provided token data if specified
@@ -292,7 +299,6 @@ void OAuth1Plugin::process(const SignOn::SessionData &inData,
     d->m_oauth1TokenSecret.clear();
     d->m_oauth1TokenVerifier.clear();
     d->m_oauth1RequestType = OAUTH1_POST_REQUEST_INVALID;
-    d->m_oauth1Data = inData.data<OAuth1PluginData>();
     d->m_oauth1RequestType = OAUTH1_POST_REQUEST_TOKEN;
     if (!d->m_oauth1Data.UserName().isEmpty()) {
         d->m_oauth1ScreenName = d->m_oauth1Data.UserName();
@@ -545,11 +551,11 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
             || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_HTML))
             || (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN))) {
 
-            QMap<QString,QString> map = parseTextReply(replyContent);
+            const QMap<QString,QString> map = parseTextReply(replyContent);
             if (d->m_oauth1RequestType == OAUTH1_POST_REQUEST_TOKEN) {
                 // Extracting the request token, token secret
-                d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
-                d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
+                d->m_oauth1Token = map.value(OAUTH_TOKEN).toAscii();
+                d->m_oauth1TokenSecret = map.value(OAUTH_TOKEN_SECRET).toAscii();
                 if (d->m_oauth1Token.isEmpty() ||
                     !map.contains(OAUTH_TOKEN_SECRET)) {
                     TRACE() << "OAuth request token is empty or secret is missing";
@@ -561,8 +567,8 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
             }
             else if (d->m_oauth1RequestType == OAUTH1_POST_ACCESS_TOKEN) {
                 // Extracting the access token
-                d->m_oauth1Token = map[OAUTH_TOKEN].toAscii();
-                d->m_oauth1TokenSecret = map[OAUTH_TOKEN_SECRET].toAscii();
+                d->m_oauth1Token = map.value(OAUTH_TOKEN).toAscii();
+                d->m_oauth1TokenSecret = map.value(OAUTH_TOKEN_SECRET).toAscii();
                 if (d->m_oauth1Token.isEmpty() ||
                     !map.contains(OAUTH_TOKEN_SECRET)) {
                     TRACE()<< "OAuth access token is empty or secret is missing";
@@ -570,7 +576,7 @@ void OAuth1Plugin::serverReply(QNetworkReply *reply)
                 }
                 else {
                     QVariantMap siteResponse;
-                    QMap<QString, QString>::iterator i;
+                    QMap<QString, QString>::const_iterator i;
                     for (i = map.begin(); i != map.end(); i++) {
                         siteResponse.insert(i.key(), i.value());
                     }

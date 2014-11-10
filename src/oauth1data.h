@@ -59,6 +59,13 @@ namespace OAuth2PluginNS {
         SIGNON_SESSION_DECLARE_PROPERTY(QString, Callback);
         SIGNON_SESSION_DECLARE_PROPERTY(QString, Realm);
 
+        /*!
+         * Set this to true if the access token returned by the previous
+         * authentication is invalid. This instructs the OAuth plugin to
+         * generate a new access token.
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(bool, ForceTokenRefresh);
+
 	/* Optional username */
         SIGNON_SESSION_DECLARE_PROPERTY(QString, UserName);
     };

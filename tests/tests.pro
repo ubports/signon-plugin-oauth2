@@ -6,6 +6,7 @@ QT += core \
     testlib
 QT -= gui
 
+DEFINES -= SIGNON_TRACE
 CONFIG += \
     link_pkgconfig
 SOURCES += \
