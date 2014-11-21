@@ -36,8 +36,8 @@ lessThan(QT_MAJOR_VERSION, 5) {
         libsignon-qt5
 }
 
-target.path = /usr/bin
-testsuite.path = /usr/share/$$TARGET
+target.path = $${INSTALL_PREFIX}/bin
+testsuite.path = $${INSTALL_PREFIX}/share/$$TARGET
 testsuite.files = tests.xml
 INSTALLS += target \
     testsuite
