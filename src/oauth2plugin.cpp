@@ -567,8 +567,6 @@ void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
 
 void OAuth2Plugin::refreshOAuth2Token(const QString &refreshToken)
 {
-    Q_D(OAuth2Plugin);
-
     TRACE() << refreshToken;
     QUrl url;
     url.addQueryItem(GRANT_TYPE, REFRESH_TOKEN);
