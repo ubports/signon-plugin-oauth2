@@ -847,6 +847,16 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         "something else" <<
         QVariantMap();
 
+    QTest::newRow("reply code, no access token") <<
+        "http://localhost/resp.html?code=c0d3" <<
+        int(Error::NotAuthorized) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "application/json" <<
+        "{ \"expires_in\": 3600 }" <<
+        QVariantMap();
+
     QTest::newRow("reply code, no content type") <<
         "http://localhost/resp.html?code=c0d3" <<
         int(Error::OperationFailed) <<
@@ -932,6 +942,20 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         "grant_type=assertion&assertion_type=http://oauth.net/token/1.0&assertion=oauth1t0k3n" <<
         int(200) <<
         "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    QTest::newRow("username-password, valid token, wrong content type") <<
+        "http://localhost/resp.html?username=us3r&password=s3cr3t" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=user_basic&username=us3r&password=s3cr3t" <<
+        int(200) <<
+        "text/plain" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
         response;
 }

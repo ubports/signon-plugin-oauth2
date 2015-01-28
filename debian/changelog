@@ -1,3 +1,14 @@
+signon-plugin-oauth2 (0.21-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release
+    - Add ForceTokenRefresh flag for forcing a new token
+    - OAuth2: implement a fallback mechanism when parsing replies
+      (LP: #1415376)
+    - Fixes build with -Werror=unused-variable
+    - Improve test coverage
+
+ -- Alberto Mardegan <alberto.mardegan@canonical.com>  Wed, 28 Jan 2015 13:09:28 +0100
+
 signon-plugin-oauth2 (0.20+15.04.20141110-0ubuntu1) vivid; urgency=low
 
   [ Ubuntu daily release ]
