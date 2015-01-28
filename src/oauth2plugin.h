@@ -75,8 +75,10 @@ private:
     void sendOAuth2PostRequest(QUrl &postData,
                                GrantType::e grantType);
     void storeResponse(const OAuth2PluginTokenData &response);
-    const QVariantMap parseJSONReply(const QByteArray &reply);
-    const QMap<QString, QString> parseTextReply(const QByteArray &reply);
+    QVariantMap parseReply(const QByteArray &contentType,
+                           const QByteArray &replyContent);
+    QVariantMap parseJSONReply(const QByteArray &reply);
+    QVariantMap parseTextReply(const QByteArray &reply);
     void handleOAuth2Error(const QByteArray &reply);
     QString urlEncode(QString strData);
 

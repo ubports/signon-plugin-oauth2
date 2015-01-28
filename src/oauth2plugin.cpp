@@ -430,6 +430,47 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
     }
 }
 
+QVariantMap OAuth2Plugin::parseReply(const QByteArray &contentType,
+                                     const QByteArray &replyContent)
+{
+    typedef QVariantMap (OAuth2Plugin::*Parser)(const QByteArray &replyContent);
+    Parser preferredParser;
+    Parser fallbackParser;
+
+    QVariantMap map;
+
+    // Handling application/json content type
+    if (contentType.startsWith(CONTENT_APP_JSON)) {
+        TRACE() << "application/json content received";
+        preferredParser = &OAuth2Plugin::parseJSONReply;
+        fallbackParser = &OAuth2Plugin::parseTextReply;
+    }
+    // Added for facebook Graph API's (handling text/plain content type)
+    else if (contentType.startsWith(CONTENT_TEXT_PLAIN) ||
+               contentType.startsWith(CONTENT_APP_URLENCODED)) {
+        TRACE() << contentType << "content received";
+        preferredParser = &OAuth2Plugin::parseTextReply;
+        fallbackParser = &OAuth2Plugin::parseJSONReply;
+    } else {
+        TRACE() << "Unsupported content type received: " << contentType;
+        Q_EMIT error(Error(Error::OperationFailed,
+                           QString("Unsupported content type received")));
+        return map;
+    }
+
+    map = (this->*preferredParser)(replyContent);
+    if (Q_UNLIKELY(map.isEmpty())) {
+        TRACE() << "Parse failed, trying fallback parser";
+        map = (this->*fallbackParser)(replyContent);
+        if (Q_UNLIKELY(map.isEmpty())) {
+            TRACE() << "Parse failed";
+            Q_EMIT error(Error(Error::NotAuthorized,
+                               QString("No access token found")));
+        }
+    }
+    return map;
+}
+
 // Method to handle responses for OAuth 2.0 requests
 void OAuth2Plugin::serverReply(QNetworkReply *reply)
 {
@@ -446,55 +487,30 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
 
     // Handling 200 OK response (HTTP_STATUS_OK) WITH content
     if (reply->hasRawHeader(CONTENT_TYPE)) {
-
-        // Handling application/json content type
-        if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_JSON)) {
-            TRACE()<< "application/json content received";
-            QVariantMap map = parseJSONReply(replyContent);
-            QByteArray accessToken = map["access_token"].toByteArray();
-            QVariant expiresIn = map["expires_in"];
-            QByteArray refreshToken = map["refresh_token"].toByteArray();
-
-            if (accessToken.isEmpty()) {
-                TRACE()<< "Access token is empty";
-                emit error(Error(Error::NotAuthorized,
-                                 QString("Access token is empty")));
-            }
-            else {
-                OAuth2PluginTokenData response;
-                response.setAccessToken(accessToken);
-                response.setRefreshToken(refreshToken);
-                response.setExpiresIn(expiresIn.toInt());
-                storeResponse(response);
-                emit result(response);
-            }
+        QVariantMap map = parseReply(reply->rawHeader(CONTENT_TYPE), replyContent);
+        if (Q_UNLIKELY(map.isEmpty())) {
+            // The error has already been delivered
+            return;
         }
-        // Added to test with facebook Graph API's (handling text/plain content type)
-        else if (reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_TEXT_PLAIN) ||
-                 reply->rawHeader(CONTENT_TYPE).startsWith(CONTENT_APP_URLENCODED)) {
-            TRACE()<< reply->rawHeader(CONTENT_TYPE) << "content received";
-            QMap<QString,QString> map = parseTextReply(replyContent);
-            QByteArray accessToken = map["access_token"].toAscii();
-            QByteArray expiresIn = map["expires"].toAscii();
-            QByteArray refreshToken = map["refresh_token"].toAscii();
-
-            if (accessToken.isEmpty()) {
-                TRACE()<< "Access token is empty";
-                emit error(Error(Error::NotAuthorized,
-                                 QString("Access token is empty")));
-            }
-            else {
-                OAuth2PluginTokenData response;
-                response.setAccessToken(accessToken);
-                response.setRefreshToken(refreshToken);
-                response.setExpiresIn(expiresIn.toInt());
-                storeResponse(response);
-                emit result(response);
-            }
+        QByteArray accessToken = map["access_token"].toByteArray();
+        int expiresIn = map["expires_in"].toInt();
+        if (expiresIn == 0) {
+            // Facebook uses just "expires" as key
+            expiresIn = map["expires"].toInt();
         }
-        else {
-            TRACE()<< "Unsupported content type received: " << reply->rawHeader(CONTENT_TYPE);
-            emit error(Error(Error::OperationFailed, QString("Unsupported content type received")));
+        QByteArray refreshToken = map["refresh_token"].toByteArray();
+
+        if (accessToken.isEmpty()) {
+            TRACE()<< "Access token is empty";
+            Q_EMIT error(Error(Error::NotAuthorized,
+                               QString("Access token is empty")));
+        } else {
+            OAuth2PluginTokenData response;
+            response.setAccessToken(accessToken);
+            response.setRefreshToken(refreshToken);
+            response.setExpiresIn(expiresIn);
+            storeResponse(response);
+            emit result(response);
         }
     }
     // Handling 200 OK response (HTTP_STATUS_OK) WITHOUT content
@@ -646,7 +662,7 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
     TRACE() << d->m_tokens;
 }
 
-const QVariantMap OAuth2Plugin::parseJSONReply(const QByteArray &reply)
+QVariantMap OAuth2Plugin::parseJSONReply(const QByteArray &reply)
 {
     TRACE();
     bool ok = false;
@@ -664,10 +680,10 @@ const QVariantMap OAuth2Plugin::parseJSONReply(const QByteArray &reply)
     return QVariantMap();
 }
 
-const QMap<QString, QString> OAuth2Plugin::parseTextReply(const QByteArray &reply)
+QVariantMap OAuth2Plugin::parseTextReply(const QByteArray &reply)
 {
     TRACE();
-    QMap<QString, QString> map;
+    QVariantMap map;
     QList<QByteArray> items = reply.split('&');
     foreach (QByteArray item, items) {
         int idx = item.indexOf("=");
