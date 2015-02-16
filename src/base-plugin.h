@@ -64,6 +64,9 @@ protected:
                      const QByteArray &data);
 
     virtual void serverReply(QNetworkReply *reply);
+    /*!
+     * Returns true if processing of the reply must stop.
+     */
     virtual bool handleNetworkError(QNetworkReply *reply,
                                     QNetworkReply::NetworkError err);
 
