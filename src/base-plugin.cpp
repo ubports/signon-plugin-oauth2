@@ -40,25 +40,39 @@ namespace OAuth2PluginNS {
 
 class BasePluginPrivate
 {
+    Q_DECLARE_PUBLIC(BasePlugin)
+
 public:
-    BasePluginPrivate();
+    BasePluginPrivate(BasePlugin *q);
     ~BasePluginPrivate();
+
+    void disposeReply();
 
     QNetworkAccessManager *m_networkAccessManager;
     QNetworkReply *m_reply;
+    mutable BasePlugin *q_ptr;
 }; //Private
 
 } //namespace OAuth2PluginNS
 
-BasePluginPrivate::BasePluginPrivate():
+BasePluginPrivate::BasePluginPrivate(BasePlugin *q):
     m_networkAccessManager(0),
-    m_reply(0)
+    m_reply(0),
+    q_ptr(q)
 {
 }
 
 BasePluginPrivate::~BasePluginPrivate()
 {
+    disposeReply();
+}
+
+void BasePluginPrivate::disposeReply()
+{
+    Q_Q(BasePlugin);
+
     if (m_reply != 0) {
+        QObject::disconnect(m_reply, 0, q, 0);
         m_reply->deleteLater();
         m_reply = 0;
     }
@@ -66,7 +80,7 @@ BasePluginPrivate::~BasePluginPrivate()
 
 BasePlugin::BasePlugin(QObject *parent):
     QObject(parent),
-    d_ptr(new BasePluginPrivate())
+    d_ptr(new BasePluginPrivate(this))
 {
 }
 
@@ -113,7 +127,7 @@ void BasePlugin::postRequest(const QNetworkRequest &request,
     connect(d->m_reply, SIGNAL(finished()),
             this, SLOT(onPostFinished()));
     connect(d->m_reply, SIGNAL(error(QNetworkReply::NetworkError)),
-            this, SLOT(handleNetworkError(QNetworkReply::NetworkError)));
+            this, SLOT(onNetworkError(QNetworkReply::NetworkError)));
     connect(d->m_reply, SIGNAL(sslErrors(QList<QSslError>)),
             this, SLOT(handleSslErrors(QList<QSslError>)));
 }
@@ -131,24 +145,34 @@ void BasePlugin::onPostFinished()
     QNetworkReply *reply = (QNetworkReply*)sender();
 
     TRACE() << "Finished signal received";
-    if (reply->error() != QNetworkReply::NoError) {
-        if (handleNetworkError(reply->error()))
-            return;
-    }
 
-    if (d->m_reply) {
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
+    d->disposeReply();
+
+    if (reply->error() != QNetworkReply::NoError) {
+        if (handleNetworkError(reply, reply->error()))
+            return;
     }
 
     serverReply(reply);
 }
 
-bool BasePlugin::handleNetworkError(QNetworkReply::NetworkError err)
+void BasePlugin::onNetworkError(QNetworkReply::NetworkError err)
 {
     Q_D(BasePlugin);
 
-    TRACE() << "error signal received:" << err;
+    QNetworkReply *reply = (QNetworkReply*)sender();
+
+    TRACE() << "Network error:" << err;
+
+    handleNetworkError(reply, err);
+    d->disposeReply();
+}
+
+bool BasePlugin::handleNetworkError(QNetworkReply *reply,
+                                    QNetworkReply::NetworkError err)
+{
+    Q_D(BasePlugin);
+
     /* Has been handled by handleSslErrors already */
     if (err == QNetworkReply::SslHandshakeFailedError) {
         return true;
@@ -162,11 +186,7 @@ bool BasePlugin::handleNetworkError(QNetworkReply::NetworkError err)
     if (err <= QNetworkReply::UnknownNetworkError)
         type = Error::NoConnection;
     QString errorString = "";
-    if (d->m_reply) {
-        errorString = d->m_reply->errorString();
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
+    errorString = reply->errorString();
     emit error(Error(type, errorString));
     return true;
 }

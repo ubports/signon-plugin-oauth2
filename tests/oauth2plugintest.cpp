@@ -95,8 +95,12 @@ public:
         m_offset(0)
     {}
 
-    void setError(NetworkError errorCode, const QString &errorString) {
+    void setError(NetworkError errorCode, const QString &errorString,
+                  int delay = -1) {
         QNetworkReply::setError(errorCode, errorString);
+        if (delay > 0) {
+            QTimer::singleShot(delay, this, SLOT(fail()));
+        }
     }
 
     void setRawHeader(const QByteArray &headerName, const QByteArray &value) {
@@ -124,6 +128,7 @@ public:
 
 public Q_SLOTS:
     void finish() { setFinished(true); Q_EMIT finished(); }
+    void fail() { Q_EMIT error(error()); }
 
 protected:
     void abort() Q_DECL_OVERRIDE {}
@@ -1354,6 +1359,98 @@ void OAuth2PluginTest::testRefreshToken()
              QString("grant_type=refresh_token&refresh_token=r3fr3sh"));
 
     QCOMPARE(m_response.toMap(), expectedResponse);
+
+    delete nam;
+}
+
+void OAuth2PluginTest::testRefreshTokenError_data()
+{
+    QTest::addColumn<int>("replyErrorCode");
+    QTest::addColumn<int>("replyStatusCode");
+    QTest::addColumn<QString>("replyContents");
+    QTest::addColumn<int>("expectedError");
+
+    QTest::newRow("invalid grant, 400") <<
+        int(QNetworkReply::ProtocolInvalidOperationError) <<
+        int(400) <<
+        "{ \"error\":\"invalid_grant\" }" <<
+        int(-1);
+
+    QTest::newRow("invalid grant, 401") <<
+        int(QNetworkReply::ContentAccessDenied) <<
+        int(401) <<
+        "{ \"error\":\"invalid_grant\" }" <<
+        int(-1);
+
+    QTest::newRow("invalid grant, 401, no error signal") <<
+        int(-1) <<
+        int(401) <<
+        "{ \"error\":\"invalid_grant\" }" <<
+        int(-1);
+
+    QTest::newRow("temporary network failure") <<
+        int(QNetworkReply::TemporaryNetworkFailureError) <<
+        int(-1) <<
+        "" <<
+        int(Error::NoConnection);
+}
+
+void OAuth2PluginTest::testRefreshTokenError()
+{
+    QFETCH(int, replyErrorCode);
+    QFETCH(int, replyStatusCode);
+    QFETCH(QString, replyContents);
+    QFETCH(int, expectedError);
+
+    OAuth2PluginData data;
+    data.setHost("localhost");
+    data.setAuthPath("authorize");
+    data.setTokenPath("access_token");
+    data.setClientId("104660106251471");
+    data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    data.setRedirectUri("http://localhost/resp.html");
+
+    QVariantMap tokens;
+    QVariantMap token;
+    token.insert("Token", QLatin1String("tokenfromtest"));
+    token.insert("timestamp", QDateTime::currentDateTime().toTime_t() - 10000);
+    token.insert("Expiry", 1000);
+    token.insert("refresh_token", QString("r3fr3sh"));
+    tokens.insert(data.ClientId(), QVariant::fromValue(token));
+    data.m_data.insert("Tokens", tokens);
+
+    SignOn::UiSessionData info;
+
+    QObject::connect(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)),
+                  this, SLOT(result(const SignOn::SessionData&)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(error(const SignOn::Error & )),
+                  this, SLOT(pluginError(const SignOn::Error &)),
+                  Qt::QueuedConnection);
+    QObject::connect(m_testPlugin, SIGNAL(userActionRequired(const SignOn::UiSessionData&)),
+                  this, SLOT(uiRequest(const SignOn::UiSessionData&)),
+                  Qt::QueuedConnection);
+    QTimer::singleShot(10*1000, &m_loop, SLOT(quit()));
+
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    if (replyErrorCode >= 0) {
+        reply->setError(QNetworkReply::NetworkError(replyErrorCode),
+                        "Dummy error", 5);
+    }
+    reply->setStatusCode(replyStatusCode);
+    reply->setContentType("application/json");
+    reply->setContent(replyContents.toUtf8());
+    nam->setNextReply(reply);
+
+    m_testPlugin->process(data, QString("web_server"));
+    m_loop.exec();
+
+    QCOMPARE(m_error.type(), expectedError);
+    if (expectedError < 0) {
+        QCOMPARE(m_uiResponse.UrlResponse(), QString("UI request received"));
+    }
 
     delete nam;
 }

@@ -64,10 +64,12 @@ protected:
                      const QByteArray &data);
 
     virtual void serverReply(QNetworkReply *reply);
+    virtual bool handleNetworkError(QNetworkReply *reply,
+                                    QNetworkReply::NetworkError err);
 
 protected Q_SLOTS:
     void onPostFinished();
-    virtual bool handleNetworkError(QNetworkReply::NetworkError err);
+    void onNetworkError(QNetworkReply::NetworkError err);
     virtual void handleSslErrors(QList<QSslError> errorList);
 
 Q_SIGNALS:

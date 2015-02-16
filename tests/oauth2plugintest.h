@@ -66,6 +66,8 @@ private slots:
     void testOAuth2Errors();
     void testRefreshToken_data();
     void testRefreshToken();
+    void testRefreshTokenError_data();
+    void testRefreshTokenError();
     void testClientAuthentication_data();
     void testClientAuthentication();
 

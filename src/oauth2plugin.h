@@ -65,6 +65,8 @@ public:
 
 protected:
     void serverReply(QNetworkReply *);
+    bool handleNetworkError(QNetworkReply *reply,
+                            QNetworkReply::NetworkError err);
 
 private:
     void sendOAuth2AuthRequest();

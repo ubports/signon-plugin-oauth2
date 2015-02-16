@@ -520,6 +520,18 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
     }
 }
 
+bool OAuth2Plugin::handleNetworkError(QNetworkReply *reply,
+                                      QNetworkReply::NetworkError err)
+{
+    if (err >= QNetworkReply::ContentAccessDenied) {
+        QByteArray replyContent = reply->readAll();
+        TRACE() << replyContent;
+        handleOAuth2Error(replyContent);
+        return true;
+    }
+    return BasePlugin::handleNetworkError(reply, err);
+}
+
 void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
 {
     Q_D(OAuth2Plugin);
