@@ -140,7 +140,6 @@ void OAuth2Plugin::sendOAuth2AuthRequest()
     if (!d->m_oauth2Data.Display().isEmpty()) {
         url.addQueryItem(DISPLAY, d->m_oauth2Data.Display());
     }
-    url.addQueryItem(QString("type"), d->m_mechanism);
     if (!d->m_oauth2Data.Scope().empty()) {
         QString separator = QLatin1String(" ");
 
