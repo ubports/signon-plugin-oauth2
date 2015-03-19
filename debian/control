@@ -22,7 +22,6 @@ Architecture: any
 Section: libs
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         signon-ui,
 Breaks: account-plugin-google (<< 0.12)
 Description: Single Signon oauth2 plugin
  Oauth2 plugin for the Single Signon framework
