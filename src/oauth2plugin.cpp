@@ -140,7 +140,6 @@ void OAuth2Plugin::sendOAuth2AuthRequest()
     if (!d->m_oauth2Data.Display().isEmpty()) {
         url.addQueryItem(DISPLAY, d->m_oauth2Data.Display());
     }
-    url.addQueryItem(QString("type"), d->m_mechanism);
     if (!d->m_oauth2Data.Scope().empty()) {
         QString separator = QLatin1String(" ");
 
@@ -518,6 +517,18 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
         TRACE()<< "Content is not present";
         emit error(Error(Error::OperationFailed, QString("Content missing")));
     }
+}
+
+bool OAuth2Plugin::handleNetworkError(QNetworkReply *reply,
+                                      QNetworkReply::NetworkError err)
+{
+    if (err >= QNetworkReply::ContentAccessDenied) {
+        QByteArray replyContent = reply->readAll();
+        TRACE() << replyContent;
+        handleOAuth2Error(replyContent);
+        return true;
+    }
+    return BasePlugin::handleNetworkError(reply, err);
 }
 
 void OAuth2Plugin::handleOAuth2Error(const QByteArray &reply)
