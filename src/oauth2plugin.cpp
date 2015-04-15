@@ -49,6 +49,7 @@ const int HTTP_STATUS_OK = 200;
 const QString AUTH_CODE = QString("code");
 const QString REDIRECT_URI = QString("redirect_uri");
 const QString RESPONSE_TYPE = QString("response_type");
+const QString STATE = QString("state");
 const QString USERNAME = QString("username");
 const QString PASSWORD = QString("password");
 const QString ASSERTION_TYPE = QString("assertion_type");
@@ -91,6 +92,7 @@ public:
     QString m_mechanism;
     OAuth2PluginData m_oauth2Data;
     QVariantMap m_tokens;
+    QString m_state;
     QString m_key;
     QString m_username;
     QString m_password;
@@ -128,6 +130,8 @@ void OAuth2Plugin::sendOAuth2AuthRequest()
     QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
     url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
     url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
+    d->m_state = QString::number(qrand());
+    url.addQueryItem(STATE, d->m_state);
     if (!d->m_oauth2Data.ResponseType().isEmpty()) {
         url.addQueryItem(RESPONSE_TYPE,
                          d->m_oauth2Data.ResponseType().join(" "));
@@ -356,6 +360,7 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
         // Response should contain the access token
         OAuth2PluginTokenData respData;
         if (url.hasFragment()) {
+            QString state;
             QUrlQuery fragment(url.fragment());
             typedef QPair<QString, QString> StringPair;
             Q_FOREACH(const StringPair &pair, fragment.queryItems()) {
@@ -365,8 +370,16 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
                     respData.setExpiresIn(pair.second.toInt());
                 } else if (pair.first == REFRESH_TOKEN) {
                     respData.setRefreshToken(pair.second);
+                } else if (pair.first == STATE) {
+                    state = pair.second;
                 }
             }
+            if (state != d->m_state) {
+                Q_EMIT error(Error(Error::NotAuthorized,
+                                   QString("'state' parameter mismatch")));
+                return;
+            }
+
             if (respData.AccessToken().isEmpty()) {
                 emit error(Error(Error::NotAuthorized, QString("Access token not present")));
             } else {
@@ -386,6 +399,11 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
         // 4. Refresh Token (refresh_token)
         QUrl newUrl;
         if (url.hasQueryItem(AUTH_CODE)) {
+            if (d->m_state != url.queryItemValue(STATE)) {
+                Q_EMIT error(Error(Error::NotAuthorized,
+                                   QString("'state' parameter mismatch")));
+                return;
+            }
             QString code = url.queryItemValue(AUTH_CODE);
             newUrl.addQueryItem(GRANT_TYPE, AUTHORIZATION_CODE);
             newUrl.addQueryItem(AUTH_CODE, code);

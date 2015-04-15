@@ -39,6 +39,13 @@
 using namespace OAuth2PluginNS;
 using namespace SignOn;
 
+static QString parseState(const QSignalSpy &userActionRequired)
+{
+    UiSessionData data = userActionRequired.at(0).at(0).value<UiSessionData>();
+    QUrlQuery query(data.OpenUrl());
+    return query.queryItemValue("state");
+}
+
 static bool mapIsSubset(const QVariantMap &set, const QVariantMap &test)
 {
     QMapIterator<QString, QVariant> it(set);
@@ -715,6 +722,7 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     m_testPlugin->process(data, QString("user_agent"));
 
     QTRY_COMPARE(userActionRequired.count(), 1);
+    QString state = parseState(userActionRequired);
 
     //empty data
     m_testPlugin->userActionFinished(info);
@@ -736,8 +744,18 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     QCOMPARE(error.at(0).at(0).value<Error>().type(), int(Error::NotAuthorized));
     error.clear();
 
+    // Wrong state
+    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html"
+                                "#access_token=123&expires_in=456&state=%1").
+                        arg(state + "Boo"));
+    m_testPlugin->userActionFinished(info);
+    QTRY_COMPARE(error.count(), 1);
+    QCOMPARE(error.at(0).at(0).value<Error>().type(), int(Error::NotAuthorized));
+    error.clear();
+
     //valid data
-    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=testtoken.&expires_in=4776"));
+    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=testtoken.&expires_in=4776&state=%1").
+                        arg(state));
     m_testPlugin->userActionFinished(info);
     QTRY_COMPARE(resultSpy.count(), 1);
     SessionData response = resultSpy.at(0).at(0).value<SessionData>();
@@ -755,7 +773,9 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     store.clear();
 
     //valid data
-    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=testtoken."));
+    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html"
+                                "#state=%1&access_token=testtoken.").
+                        arg(state));
     m_testPlugin->userActionFinished(info);
     QTRY_COMPARE(resultSpy.count(), 1);
     response = resultSpy.at(0).at(0).value<SessionData>();
@@ -807,7 +827,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         "" << "" << 0 << "" << "" << QVariantMap();
 
     QTest::newRow("permission denied") <<
-        "http://localhost/resp.html?error=user_denied" <<
+        "http://localhost/resp.html?error=user_denied&$state" <<
         int(Error::NotAuthorized) <<
         "" << "" << 0 << "" << "" << QVariantMap();
 
@@ -817,7 +837,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         "" << "" << 0 << "" << "" << QVariantMap();
 
     QTest::newRow("reply code, http error 401") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(Error::OperationFailed) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -827,7 +847,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         QVariantMap();
 
     QTest::newRow("reply code, empty reply") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(Error::NotAuthorized) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -837,7 +857,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         QVariantMap();
 
     QTest::newRow("reply code, no access token") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(Error::NotAuthorized) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -847,7 +867,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         QVariantMap();
 
     QTest::newRow("reply code, no content type") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(Error::OperationFailed) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -857,7 +877,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         QVariantMap();
 
     QTest::newRow("reply code, unsupported content type") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(Error::OperationFailed) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -870,8 +890,22 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     response.insert("AccessToken", "t0k3n");
     response.insert("ExpiresIn", int(3600));
     response.insert("RefreshToken", QString());
+    QTest::newRow("reply code, valid token, wrong state") <<
+        "http://localhost/resp.html?code=c0d3&$wrongstate" <<
+        int(Error::NotAuthorized) <<
+        "" <<
+        "" <<
+        int(200) <<
+        "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
     QTest::newRow("reply code, valid token") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -882,7 +916,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
 
     response.clear();
     QTest::newRow("reply code, facebook, no token") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(Error::NotAuthorized) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -896,7 +930,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     response.insert("ExpiresIn", int(3600));
     response.insert("RefreshToken", QString());
     QTest::newRow("reply code, facebook, valid token") <<
-        "http://localhost/resp.html?code=c0d3" <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
@@ -986,8 +1020,11 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
 
     m_testPlugin->process(data, QString("web_server"));
     QTRY_COMPARE(userActionRequired.count(), 1);
+    QString state = parseState(userActionRequired);
 
     if (!urlResponse.isEmpty()) {
+        urlResponse.replace("$state", QString("state=") + state);
+        urlResponse.replace("$wrongstate", QString("state=12") + state);
         info.setUrlResponse(urlResponse);
     }
 
@@ -1254,8 +1291,9 @@ void OAuth2PluginTest::testOAuth2Errors()
 
     m_testPlugin->process(data, QString("web_server"));
     QTRY_COMPARE(userActionRequired.count(), 1);
+    QString state = parseState(userActionRequired);
 
-    info.setUrlResponse("http://localhost/resp.html?code=c0d3");
+    info.setUrlResponse("http://localhost/resp.html?code=c0d3&state=" + state);
     m_testPlugin->userActionFinished(info);
 
     QTRY_COMPARE(error.count(), 1);
@@ -1481,8 +1519,9 @@ void OAuth2PluginTest::testClientAuthentication()
 
     m_testPlugin->process(data, QString("web_server"));
     QTRY_COMPARE(userActionRequired.count(), 1);
+    QString state = parseState(userActionRequired);
 
-    info.setUrlResponse("http://localhost/resp.html?code=c0d3");
+    info.setUrlResponse("http://localhost/resp.html?code=c0d3&state=" + state);
     m_testPlugin->userActionFinished(info);
 
     QTRY_COMPARE(result.count(), 1);
