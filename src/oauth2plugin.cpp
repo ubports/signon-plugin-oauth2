@@ -26,6 +26,7 @@
 #include "oauth2tokendata.h"
 
 #include <QUrl>
+#include <QUrlQuery>
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QDateTime>
@@ -360,19 +361,16 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
     if (d->m_mechanism == USER_AGENT) {
         // Response should contain the access token
         OAuth2PluginTokenData respData;
-        QString fragment;
         if (url.hasFragment()) {
-            fragment = url.fragment();
-            QStringList list = fragment.split(QRegExp("&|="), QString::SkipEmptyParts);
-            for (int i = 1; i < list.count(); i += 2) {
-                if (list.at(i - 1) == ACCESS_TOKEN) {
-                    respData.setAccessToken(list.at(i));
-                }
-                else if (list.at(i - 1) == EXPIRES_IN) {
-                    respData.setExpiresIn(QString(list.at(i)).toInt());
-                }
-                else if (list.at(i - 1) == REFRESH_TOKEN) {
-                    respData.setRefreshToken(list.at(i));
+            QUrlQuery fragment(url.fragment());
+            typedef QPair<QString, QString> StringPair;
+            Q_FOREACH(const StringPair &pair, fragment.queryItems()) {
+                if (pair.first == ACCESS_TOKEN) {
+                    respData.setAccessToken(pair.second);
+                } else if (pair.first == EXPIRES_IN) {
+                    respData.setExpiresIn(pair.second.toInt());
+                } else if (pair.first == REFRESH_TOKEN) {
+                    respData.setRefreshToken(pair.second);
                 }
             }
             if (respData.AccessToken().isEmpty()) {
