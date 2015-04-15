@@ -35,13 +35,6 @@ class OAuth2PluginTest : public QObject
 {
     Q_OBJECT
 
-public slots:
-    void result(const SignOn::SessionData &data);
-    void pluginError(const SignOn::Error &err);
-    void uiRequest(const SignOn::UiSessionData &data);
-    void store(const SignOn::SessionData &data);
-    void aborted(QNetworkReply *reply);
-
 private slots:
     void initTestCase();
     void cleanupTestCase();
@@ -73,11 +66,6 @@ private slots:
 
 private:
     Plugin *m_testPlugin;
-    SignOn::Error m_error;
-    SignOn::SessionData m_response;
-    SignOn::UiSessionData m_uiResponse;
-    SignOn::SessionData m_stored;
-    QEventLoop m_loop;
 };
 
 #endif // OAUTH2PLUGINTEST_H
