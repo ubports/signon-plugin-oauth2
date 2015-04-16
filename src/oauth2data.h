@@ -106,6 +106,10 @@ namespace OAuth2PluginNS {
          * Access token expiry time
          */
         SIGNON_SESSION_DECLARE_PROPERTY(int, ExpiresIn);
+        /*!
+         * Granted permissions
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(QStringList, Scope);
     };
 
 } // namespace OAuth2PluginNS
