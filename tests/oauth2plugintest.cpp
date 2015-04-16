@@ -21,6 +21,8 @@
  * 02110-1301 USA
  */
 
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QPointer>
@@ -38,6 +40,15 @@
 
 using namespace OAuth2PluginNS;
 using namespace SignOn;
+
+namespace QTest {
+template<>
+char *toString(const QVariantMap &map)
+{
+    QJsonDocument doc(QJsonObject::fromVariantMap(map));
+    return qstrdup(doc.toJson(QJsonDocument::Compact).data());
+}
+} // QTest namespace
 
 static QString parseState(const QSignalSpy &userActionRequired)
 {
