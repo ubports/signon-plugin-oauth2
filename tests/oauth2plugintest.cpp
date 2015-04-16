@@ -762,6 +762,7 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
     OAuth2PluginTokenData result = response.data<OAuth2PluginTokenData>();
     QCOMPARE(result.AccessToken(), QString("testtoken."));
     QCOMPARE(result.ExpiresIn(), 4776);
+    QCOMPARE(result.Scope(), QStringList() << "scope1" << "scope2");
     resultSpy.clear();
     QTRY_COMPARE(store.count(), 1);
     SessionData storedData = store.at(0).at(0).value<SessionData>();
@@ -770,6 +771,19 @@ void OAuth2PluginTest::testPluginUseragentUserActionFinished()
         storedTokenData.value(data.ClientId()).toMap();
     QVERIFY(!storedClientData.isEmpty());
     QCOMPARE(storedClientData["Scopes"].toStringList(), scopes);
+    store.clear();
+
+    //valid data, got scopes
+    info.setUrlResponse(QString("http://www.facebook.com/connect/login_success.html#access_token=testtoken.&expires_in=4776&state=%1&scope=scope2").
+                        arg(state));
+    m_testPlugin->userActionFinished(info);
+    QTRY_COMPARE(resultSpy.count(), 1);
+    response = resultSpy.at(0).at(0).value<SessionData>();
+    result = response.data<OAuth2PluginTokenData>();
+    QCOMPARE(result.AccessToken(), QString("testtoken."));
+    QCOMPARE(result.ExpiresIn(), 4776);
+    QCOMPARE(result.Scope(), QStringList() << "scope2");
+    resultSpy.clear();
     store.clear();
 
     //valid data
@@ -904,7 +918,8 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     response.insert("AccessToken", "t0k3n");
     response.insert("ExpiresIn", int(3600));
     response.insert("RefreshToken", QString());
-    QTest::newRow("reply code, valid token") <<
+    response.insert("Scope", QStringList() << "one" << "two" << "three");
+    QTest::newRow("reply code, valid token, no scope") <<
         "http://localhost/resp.html?code=c0d3&$state" <<
         int(-1) <<
         "https://localhost/access_token" <<
@@ -912,6 +927,37 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(200) <<
         "application/json" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList());
+    QTest::newRow("reply code, valid token, empty scope") <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600, \"scope\": \"\" }" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList() << "one" << "two");
+    QTest::newRow("reply code, valid token, other scope") <<
+        "http://localhost/resp.html?code=c0d3&$state" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        int(200) <<
+        "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600, "
+        "\"scope\": \"one two\" }" <<
         response;
 
     response.clear();
@@ -929,6 +975,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     response.insert("AccessToken", "t0k3n");
     response.insert("ExpiresIn", int(3600));
     response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList() << "one" << "two" << "three");
     QTest::newRow("reply code, facebook, valid token") <<
         "http://localhost/resp.html?code=c0d3&$state" <<
         int(-1) <<
@@ -943,6 +990,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     response.insert("AccessToken", "t0k3n");
     response.insert("ExpiresIn", int(3600));
     response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList() << "one" << "two" << "three");
     QTest::newRow("username-password, valid token") <<
         "http://localhost/resp.html?username=us3r&password=s3cr3t" <<
         int(-1) <<
@@ -957,6 +1005,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     response.insert("AccessToken", "t0k3n");
     response.insert("ExpiresIn", int(3600));
     response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList() << "one" << "two" << "three");
     QTest::newRow("assertion, valid token") <<
         "http://localhost/resp.html?assertion_type=http://oauth.net/token/1.0"
         "&assertion=oauth1t0k3n" <<
@@ -972,6 +1021,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     response.insert("AccessToken", "t0k3n");
     response.insert("ExpiresIn", int(3600));
     response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList() << "one" << "two" << "three");
     QTest::newRow("username-password, valid token, wrong content type") <<
         "http://localhost/resp.html?username=us3r&password=s3cr3t" <<
         int(-1) <<
@@ -1002,6 +1052,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
     data.setClientId("104660106251471");
     data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
     data.setRedirectUri("http://localhost/resp.html");
+    data.setScope(QStringList() << "one" << "two" << "three");
 
     QSignalSpy result(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)));
     QSignalSpy error(m_testPlugin, SIGNAL(error(const SignOn::Error &)));
@@ -1328,6 +1379,7 @@ void OAuth2PluginTest::testRefreshToken_data()
     response.insert("AccessToken", "n3w-t0k3n");
     response.insert("ExpiresIn", 3600);
     response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList());
 
     QTest::newRow("expired access token") << data.toMap() << response;
 

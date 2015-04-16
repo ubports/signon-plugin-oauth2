@@ -57,6 +57,7 @@ const QString ASSERTION = QString("assertion");
 const QString ACCESS_TOKEN = QString("access_token");
 const QString DISPLAY = QString("display");
 const QString EXPIRES_IN = QString("expires_in");
+const QString SCOPE = QString("scope");
 const QString TIMESTAMP = QString("timestamp");
 const QString GRANT_TYPE = QString("grant_type");
 const QString AUTHORIZATION_CODE = QString("authorization_code");
@@ -152,7 +153,7 @@ void OAuth2Plugin::sendOAuth2AuthRequest()
         }
 
         // Passing list of scopes
-        url.addQueryItem(QString("scope"), d->m_oauth2Data.Scope().join(separator));
+        url.addQueryItem(SCOPE, d->m_oauth2Data.Scope().join(separator));
     }
     TRACE() << "Url = " << url.toString();
     SignOn::UiSessionData uiSession;
@@ -361,6 +362,7 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
         OAuth2PluginTokenData respData;
         if (url.hasFragment()) {
             QString state;
+            respData.setScope(d->m_oauth2Data.Scope());
             QUrlQuery fragment(url.fragment());
             typedef QPair<QString, QString> StringPair;
             Q_FOREACH(const StringPair &pair, fragment.queryItems()) {
@@ -372,6 +374,8 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
                     respData.setRefreshToken(pair.second);
                 } else if (pair.first == STATE) {
                     state = pair.second;
+                } else if (pair.first == SCOPE) {
+                    respData.setScope(pair.second.split(' ', QString::SkipEmptyParts));
                 }
             }
             if (state != d->m_state) {
@@ -483,6 +487,8 @@ QVariantMap OAuth2Plugin::parseReply(const QByteArray &contentType,
 // Method to handle responses for OAuth 2.0 requests
 void OAuth2Plugin::serverReply(QNetworkReply *reply)
 {
+    Q_D(OAuth2Plugin);
+
     QByteArray replyContent = reply->readAll();
     TRACE() << replyContent;
 
@@ -509,6 +515,14 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
         }
         QByteArray refreshToken = map["refresh_token"].toByteArray();
 
+        QStringList scope;
+        if (map.contains(SCOPE)) {
+            QString rawScope = QString::fromUtf8(map[SCOPE].toByteArray());
+            scope = rawScope.split(' ', QString::SkipEmptyParts);
+        } else {
+            scope = d->m_oauth2Data.Scope();
+        }
+
         if (accessToken.isEmpty()) {
             TRACE()<< "Access token is empty";
             Q_EMIT error(Error(Error::NotAuthorized,
@@ -518,6 +532,7 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
             response.setAccessToken(accessToken);
             response.setRefreshToken(refreshToken);
             response.setExpiresIn(expiresIn);
+            response.setScope(scope);
             storeResponse(response);
             emit result(response);
         }
