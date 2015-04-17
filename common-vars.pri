@@ -13,7 +13,7 @@ PROJECT_NAME = signon-oauth2
 # Project version
 # remember to update debian/* files if you changes this
 #-----------------------------------------------------------------------------
-PROJECT_VERSION = 0.21
+PROJECT_VERSION = 0.22
 
 #-----------------------------------------------------------------------------
 # Library version
