@@ -1,11 +1,15 @@
-signon-plugin-oauth2 (0.22-0ubuntu1) UNRELEASED; urgency=medium
+signon-plugin-oauth2 (0.22+15.04.20150417-0ubuntu1) vivid; urgency=medium
 
+  [ Alberto Mardegan ]
   * New upstream release
     - Return the list of granted permissions to the client
     - Require Qt5 for building
     - Use a "state" parameter to protect against CSRF (LP: #1432857) 
 
- -- Alberto Mardegan <alberto.mardegan@canonical.com>  Thu, 16 Apr 2015 16:42:35 +0300
+  [ CI Train Bot ]
+  * New rebuild forced.
+
+ -- CI Train Bot <ci-train-bot@canonical.com>  Fri, 17 Apr 2015 14:56:51 +0000
 
 signon-plugin-oauth2 (0.21+15.04.20150327-0ubuntu1) vivid; urgency=medium
 
