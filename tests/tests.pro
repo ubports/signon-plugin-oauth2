@@ -25,16 +25,9 @@ INCLUDEPATH += . \
     $${TOP_SRC_DIR}/src \
     /usr/include/signon-qt
 PKGCONFIG += \
+    libsignon-qt5 \
     signon-plugins
 
-lessThan(QT_MAJOR_VERSION, 5) {
-    PKGCONFIG += \
-        QJson \
-        libsignon-qt
-} else {
-    PKGCONFIG += \
-        libsignon-qt5
-}
 
 target.path = $${INSTALL_PREFIX}/bin
 testsuite.path = $${INSTALL_PREFIX}/share/$$TARGET

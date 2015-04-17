@@ -25,18 +25,13 @@
 #include "oauth2plugin.h"
 #include "oauth2tokendata.h"
 
+#include <QJsonDocument>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QDateTime>
 
-#define USE_LIBQJSON (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
-
-#if USE_LIBQJSON
-#include <qjson/parser.h>
-#else
-#include <QJsonDocument>
-#endif
 
 using namespace SignOn;
 using namespace OAuth2PluginNS;
@@ -54,6 +49,7 @@ const int HTTP_STATUS_OK = 200;
 const QString AUTH_CODE = QString("code");
 const QString REDIRECT_URI = QString("redirect_uri");
 const QString RESPONSE_TYPE = QString("response_type");
+const QString STATE = QString("state");
 const QString USERNAME = QString("username");
 const QString PASSWORD = QString("password");
 const QString ASSERTION_TYPE = QString("assertion_type");
@@ -61,6 +57,7 @@ const QString ASSERTION = QString("assertion");
 const QString ACCESS_TOKEN = QString("access_token");
 const QString DISPLAY = QString("display");
 const QString EXPIRES_IN = QString("expires_in");
+const QString SCOPE = QString("scope");
 const QString TIMESTAMP = QString("timestamp");
 const QString GRANT_TYPE = QString("grant_type");
 const QString AUTHORIZATION_CODE = QString("authorization_code");
@@ -96,6 +93,7 @@ public:
     QString m_mechanism;
     OAuth2PluginData m_oauth2Data;
     QVariantMap m_tokens;
+    QString m_state;
     QString m_key;
     QString m_username;
     QString m_password;
@@ -133,6 +131,8 @@ void OAuth2Plugin::sendOAuth2AuthRequest()
     QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
     url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
     url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
+    d->m_state = QString::number(qrand());
+    url.addQueryItem(STATE, d->m_state);
     if (!d->m_oauth2Data.ResponseType().isEmpty()) {
         url.addQueryItem(RESPONSE_TYPE,
                          d->m_oauth2Data.ResponseType().join(" "));
@@ -153,7 +153,7 @@ void OAuth2Plugin::sendOAuth2AuthRequest()
         }
 
         // Passing list of scopes
-        url.addQueryItem(QString("scope"), d->m_oauth2Data.Scope().join(separator));
+        url.addQueryItem(SCOPE, d->m_oauth2Data.Scope().join(separator));
     }
     TRACE() << "Url = " << url.toString();
     SignOn::UiSessionData uiSession;
@@ -360,21 +360,30 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
     if (d->m_mechanism == USER_AGENT) {
         // Response should contain the access token
         OAuth2PluginTokenData respData;
-        QString fragment;
         if (url.hasFragment()) {
-            fragment = url.fragment();
-            QStringList list = fragment.split(QRegExp("&|="), QString::SkipEmptyParts);
-            for (int i = 1; i < list.count(); i += 2) {
-                if (list.at(i - 1) == ACCESS_TOKEN) {
-                    respData.setAccessToken(list.at(i));
-                }
-                else if (list.at(i - 1) == EXPIRES_IN) {
-                    respData.setExpiresIn(QString(list.at(i)).toInt());
-                }
-                else if (list.at(i - 1) == REFRESH_TOKEN) {
-                    respData.setRefreshToken(list.at(i));
+            QString state;
+            respData.setScope(d->m_oauth2Data.Scope());
+            QUrlQuery fragment(url.fragment());
+            typedef QPair<QString, QString> StringPair;
+            Q_FOREACH(const StringPair &pair, fragment.queryItems()) {
+                if (pair.first == ACCESS_TOKEN) {
+                    respData.setAccessToken(pair.second);
+                } else if (pair.first == EXPIRES_IN) {
+                    respData.setExpiresIn(pair.second.toInt());
+                } else if (pair.first == REFRESH_TOKEN) {
+                    respData.setRefreshToken(pair.second);
+                } else if (pair.first == STATE) {
+                    state = pair.second;
+                } else if (pair.first == SCOPE) {
+                    respData.setScope(pair.second.split(' ', QString::SkipEmptyParts));
                 }
             }
+            if (state != d->m_state) {
+                Q_EMIT error(Error(Error::NotAuthorized,
+                                   QString("'state' parameter mismatch")));
+                return;
+            }
+
             if (respData.AccessToken().isEmpty()) {
                 emit error(Error(Error::NotAuthorized, QString("Access token not present")));
             } else {
@@ -394,6 +403,11 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
         // 4. Refresh Token (refresh_token)
         QUrl newUrl;
         if (url.hasQueryItem(AUTH_CODE)) {
+            if (d->m_state != url.queryItemValue(STATE)) {
+                Q_EMIT error(Error(Error::NotAuthorized,
+                                   QString("'state' parameter mismatch")));
+                return;
+            }
             QString code = url.queryItemValue(AUTH_CODE);
             newUrl.addQueryItem(GRANT_TYPE, AUTHORIZATION_CODE);
             newUrl.addQueryItem(AUTH_CODE, code);
@@ -473,6 +487,8 @@ QVariantMap OAuth2Plugin::parseReply(const QByteArray &contentType,
 // Method to handle responses for OAuth 2.0 requests
 void OAuth2Plugin::serverReply(QNetworkReply *reply)
 {
+    Q_D(OAuth2Plugin);
+
     QByteArray replyContent = reply->readAll();
     TRACE() << replyContent;
 
@@ -499,6 +515,14 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
         }
         QByteArray refreshToken = map["refresh_token"].toByteArray();
 
+        QStringList scope;
+        if (map.contains(SCOPE)) {
+            QString rawScope = QString::fromUtf8(map[SCOPE].toByteArray());
+            scope = rawScope.split(' ', QString::SkipEmptyParts);
+        } else {
+            scope = d->m_oauth2Data.Scope();
+        }
+
         if (accessToken.isEmpty()) {
             TRACE()<< "Access token is empty";
             Q_EMIT error(Error(Error::NotAuthorized,
@@ -508,6 +532,7 @@ void OAuth2Plugin::serverReply(QNetworkReply *reply)
             response.setAccessToken(accessToken);
             response.setRefreshToken(refreshToken);
             response.setExpiresIn(expiresIn);
+            response.setScope(scope);
             storeResponse(response);
             emit result(response);
         }
@@ -676,15 +701,9 @@ void OAuth2Plugin::storeResponse(const OAuth2PluginTokenData &response)
 QVariantMap OAuth2Plugin::parseJSONReply(const QByteArray &reply)
 {
     TRACE();
-    bool ok = false;
-#if USE_LIBQJSON
-    QJson::Parser parser;
-    QVariant tree = parser.parse(reply, &ok);
-#else
     QJsonDocument doc = QJsonDocument::fromJson(reply);
-    ok = !doc.isEmpty();
+    bool ok = !doc.isEmpty();
     QVariant tree = doc.toVariant();
-#endif
     if (ok) {
         return tree.toMap();
     }
