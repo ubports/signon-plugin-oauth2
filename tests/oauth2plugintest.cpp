@@ -422,6 +422,11 @@ void OAuth2PluginTest::testPluginProcess()
         if (!response.isEmpty()) {
             QCOMPARE(result.count(), 1);
             QVariantMap resp = result.at(0).at(0).value<SessionData>().toMap();
+            /* Round the expiration time, because some seconds might have passed */
+            if (resp.contains("ExpiresIn")) {
+                resp["ExpiresIn"] = qRound(resp["ExpiresIn"].toInt() / 10.0) * 10;
+                response["ExpiresIn"] = qRound(response["ExpiresIn"].toInt() / 10.0) * 10;
+            }
             QCOMPARE(resp, response);
         }
         if (!stored.isEmpty()) {
