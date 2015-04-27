@@ -71,6 +71,13 @@ namespace OAuth2PluginNS {
         SIGNON_SESSION_DECLARE_PROPERTY(bool, ForceTokenRefresh);
 
         /*!
+         * Set this to true if the provider does not support passing the
+         * "state" parameter around, as described in
+         * http://tools.ietf.org/html/rfc6749#appendix-A.5
+         */
+        SIGNON_SESSION_DECLARE_PROPERTY(bool, DisableStateParameter);
+
+        /*!
          * redirection URI
          */
         SIGNON_SESSION_DECLARE_PROPERTY(QString, RedirectUri);
