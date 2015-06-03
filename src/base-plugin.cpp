@@ -200,9 +200,7 @@ void BasePlugin::handleSslErrors(QList<QSslError> errorList)
     foreach (QSslError error, errorList) {
         errorString += error.errorString() + ";";
     }
-    if (d->m_reply) {
-        d->m_reply->deleteLater();
-        d->m_reply = 0;
-    }
+    d->disposeReply();
+
     emit error(Error(Error::Ssl, errorString));
 }

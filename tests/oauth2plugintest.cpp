@@ -422,6 +422,11 @@ void OAuth2PluginTest::testPluginProcess()
         if (!response.isEmpty()) {
             QCOMPARE(result.count(), 1);
             QVariantMap resp = result.at(0).at(0).value<SessionData>().toMap();
+            /* Round the expiration time, because some seconds might have passed */
+            if (resp.contains("ExpiresIn")) {
+                resp["ExpiresIn"] = qRound(resp["ExpiresIn"].toInt() / 10.0) * 10;
+                response["ExpiresIn"] = qRound(response["ExpiresIn"].toInt() / 10.0) * 10;
+            }
             QCOMPARE(resp, response);
         }
         if (!stored.isEmpty()) {
@@ -834,6 +839,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     QTest::addColumn<int>("errorCode");
     QTest::addColumn<QString>("postUrl");
     QTest::addColumn<QString>("postContents");
+    QTest::addColumn<bool>("disableStateParameter");
     QTest::addColumn<int>("replyStatusCode");
     QTest::addColumn<QString>("replyContentType");
     QTest::addColumn<QString>("replyContents");
@@ -844,28 +850,29 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
     QTest::newRow("empty data") <<
         "" <<
         int(Error::NotAuthorized) <<
-        "" << "" << 0 << "" << "" << QVariantMap();
+        "" << "" << false << 0 << "" << "" << QVariantMap();
 
     QTest::newRow("no query data") <<
         "http://localhost/resp.html" <<
         int(Error::NotAuthorized) <<
-        "" << "" << 0 << "" << "" << QVariantMap();
+        "" << "" << false << 0 << "" << "" << QVariantMap();
 
     QTest::newRow("permission denied") <<
         "http://localhost/resp.html?error=user_denied&$state" <<
         int(Error::NotAuthorized) <<
-        "" << "" << 0 << "" << "" << QVariantMap();
+        "" << "" << false << 0 << "" << "" << QVariantMap();
 
     QTest::newRow("invalid data") <<
         "http://localhost/resp.html?sdsdsds=access.grant." <<
         int(Error::NotAuthorized) <<
-        "" << "" << 0 << "" << "" << QVariantMap();
+        "" << "" << false << 0 << "" << "" << QVariantMap();
 
     QTest::newRow("reply code, http error 401") <<
         "http://localhost/resp.html?code=c0d3&$state" <<
         int(Error::OperationFailed) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(401) <<
         "application/json" <<
         "something else" <<
@@ -876,6 +883,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(Error::NotAuthorized) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "application/json" <<
         "something else" <<
@@ -886,6 +894,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(Error::NotAuthorized) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "application/json" <<
         "{ \"expires_in\": 3600 }" <<
@@ -896,6 +905,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(Error::OperationFailed) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "" <<
         "something else" <<
@@ -906,6 +916,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(Error::OperationFailed) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "image/jpeg" <<
         "something else" <<
@@ -920,9 +931,27 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(Error::NotAuthorized) <<
         "" <<
         "" <<
+        false <<
         int(200) <<
         "application/json" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
+        response;
+
+    response.clear();
+    response.insert("AccessToken", "t0k3n");
+    response.insert("ExpiresIn", int(3600));
+    response.insert("RefreshToken", QString());
+    response.insert("Scope", QStringList() << "one" << "two");
+    QTest::newRow("reply code, valid token, wrong state ignored") <<
+        "http://localhost/resp.html?code=c0d3&$wrongstate" <<
+        int(-1) <<
+        "https://localhost/access_token" <<
+        "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        true <<
+        int(200) <<
+        "application/json" <<
+        "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600, "
+        "\"scope\": \"one two\" }" <<
         response;
 
     response.clear();
@@ -935,6 +964,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "application/json" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
@@ -950,6 +980,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "application/json" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600, \"scope\": \"\" }" <<
@@ -965,6 +996,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "application/json" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600, "
@@ -977,6 +1009,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(Error::NotAuthorized) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "text/plain" <<
         "expires=3600" <<
@@ -992,6 +1025,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=authorization_code&code=c0d3&redirect_uri=http://localhost/resp.html" <<
+        false <<
         int(200) <<
         "text/plain" <<
         "access_token=t0k3n&expires=3600" <<
@@ -1007,6 +1041,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=user_basic&username=us3r&password=s3cr3t" <<
+        false <<
         int(200) <<
         "application/json" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
@@ -1023,6 +1058,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=assertion&assertion_type=http://oauth.net/token/1.0&assertion=oauth1t0k3n" <<
+        false <<
         int(200) <<
         "application/json" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
@@ -1038,6 +1074,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished_data()
         int(-1) <<
         "https://localhost/access_token" <<
         "grant_type=user_basic&username=us3r&password=s3cr3t" <<
+        false <<
         int(200) <<
         "text/plain" <<
         "{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }" <<
@@ -1050,6 +1087,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
     QFETCH(int, errorCode);
     QFETCH(QString, postUrl);
     QFETCH(QString, postContents);
+    QFETCH(bool, disableStateParameter);
     QFETCH(int, replyStatusCode);
     QFETCH(QString, replyContentType);
     QFETCH(QString, replyContents);
@@ -1064,6 +1102,7 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
     data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
     data.setRedirectUri("http://localhost/resp.html");
     data.setScope(QStringList() << "one" << "two" << "three");
+    data.setDisableStateParameter(disableStateParameter);
 
     QSignalSpy result(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)));
     QSignalSpy error(m_testPlugin, SIGNAL(error(const SignOn::Error &)));

@@ -131,8 +131,10 @@ void OAuth2Plugin::sendOAuth2AuthRequest()
     QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host()).arg(d->m_oauth2Data.AuthPath()));
     url.addQueryItem(CLIENT_ID, d->m_oauth2Data.ClientId());
     url.addQueryItem(REDIRECT_URI, d->m_oauth2Data.RedirectUri());
-    d->m_state = QString::number(qrand());
-    url.addQueryItem(STATE, d->m_state);
+    if (!d->m_oauth2Data.DisableStateParameter()) {
+        d->m_state = QString::number(qrand());
+        url.addQueryItem(STATE, d->m_state);
+    }
     if (!d->m_oauth2Data.ResponseType().isEmpty()) {
         url.addQueryItem(RESPONSE_TYPE,
                          d->m_oauth2Data.ResponseType().join(" "));
@@ -378,7 +380,8 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
                     respData.setScope(pair.second.split(' ', QString::SkipEmptyParts));
                 }
             }
-            if (state != d->m_state) {
+            if (!d->m_oauth2Data.DisableStateParameter() &&
+                state != d->m_state) {
                 Q_EMIT error(Error(Error::NotAuthorized,
                                    QString("'state' parameter mismatch")));
                 return;
@@ -403,7 +406,8 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
         // 4. Refresh Token (refresh_token)
         QUrl newUrl;
         if (url.hasQueryItem(AUTH_CODE)) {
-            if (d->m_state != url.queryItemValue(STATE)) {
+            if (!d->m_oauth2Data.DisableStateParameter() &&
+                d->m_state != url.queryItemValue(STATE)) {
                 Q_EMIT error(Error(Error::NotAuthorized,
                                    QString("'state' parameter mismatch")));
                 return;

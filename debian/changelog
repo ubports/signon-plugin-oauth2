@@ -1,3 +1,12 @@
+signon-plugin-oauth2 (0.22+15.04.20150417-0ubuntu3) UNRELEASED; urgency=medium
+
+  * Merge from upstream
+    - Fix unreliable test
+    - Disconnect from reply on SSL errors (LP: #1447119)
+    - Allow disabling the "state" parameter (LP: #1449268)
+
+ -- Alberto Mardegan <alberto.mardegan@canonical.com>  Mon, 27 Apr 2015 17:45:44 -0500
+
 signon-plugin-oauth2 (0.22+15.04.20150417-0ubuntu1) vivid; urgency=medium
 
   [ Alberto Mardegan ]
