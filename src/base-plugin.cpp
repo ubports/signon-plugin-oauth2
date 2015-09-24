@@ -171,8 +171,6 @@ void BasePlugin::onNetworkError(QNetworkReply::NetworkError err)
 bool BasePlugin::handleNetworkError(QNetworkReply *reply,
                                     QNetworkReply::NetworkError err)
 {
-    Q_D(BasePlugin);
-
     /* Has been handled by handleSslErrors already */
     if (err == QNetworkReply::SslHandshakeFailedError) {
         return true;
