@@ -336,18 +336,7 @@ void OAuth2Plugin::userActionFinished(const SignOn::UiSessionData &data)
 {
     Q_D(OAuth2Plugin);
 
-    TRACE();
-
-    if (data.QueryErrorCode() != QUERY_ERROR_NONE) {
-        TRACE() << "userActionFinished with error: " << data.QueryErrorCode();
-        if (data.QueryErrorCode() == QUERY_ERROR_CANCELED)
-            emit error(Error(Error::SessionCanceled, QLatin1String("Cancelled by user")));
-        else
-            emit error(Error(Error::UserInteraction,
-                             QString("userActionFinished error: ")
-                             + QString::number(data.QueryErrorCode())));
-        return;
-    }
+    if (handleUiErrors(data)) return;
 
     TRACE() << data.UrlResponse();
 
