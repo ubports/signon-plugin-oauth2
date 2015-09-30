@@ -1144,6 +1144,56 @@ void OAuth2PluginTest::testPluginWebserverUserActionFinished()
     delete nam;
 }
 
+void OAuth2PluginTest::testUserActionFinishedErrors_data()
+{
+    QTest::addColumn<int>("uiError");
+    QTest::addColumn<int>("expectedErrorCode");
+
+    QTest::newRow("user canceled") <<
+        int(QUERY_ERROR_CANCELED) <<
+        int(Error::SessionCanceled);
+
+    QTest::newRow("network error") <<
+        int(QUERY_ERROR_NETWORK) <<
+        int(Error::Network);
+
+    QTest::newRow("SSL error") <<
+        int(QUERY_ERROR_SSL) <<
+        int(Error::Ssl);
+
+    QTest::newRow("generic") <<
+        int(QUERY_ERROR_NOT_AVAILABLE) <<
+        int(Error::UserInteraction);
+}
+
+void OAuth2PluginTest::testUserActionFinishedErrors()
+{
+    QFETCH(int, uiError);
+    QFETCH(int, expectedErrorCode);
+
+    SignOn::UiSessionData info;
+    OAuth2PluginData data;
+    data.setHost("localhost");
+    data.setAuthPath("authorize");
+    data.setTokenPath("access_token");
+    data.setClientId("104660106251471");
+    data.setClientSecret("fa28f40b5a1f8c1d5628963d880636fbkjkjkj");
+    data.setRedirectUri("http://localhost/resp.html");
+
+    QSignalSpy error(m_testPlugin, SIGNAL(error(const SignOn::Error &)));
+    QSignalSpy userActionRequired(m_testPlugin,
+                                  SIGNAL(userActionRequired(const SignOn::UiSessionData&)));
+
+    m_testPlugin->process(data, QString("web_server"));
+    QTRY_COMPARE(userActionRequired.count(), 1);
+
+    info.setQueryErrorCode(uiError);
+    m_testPlugin->userActionFinished(info);
+
+    QTRY_COMPARE(error.count(), 1);
+    QCOMPARE(error.at(0).at(0).value<Error>().type(), expectedErrorCode);
+}
+
 void OAuth2PluginTest::testOauth1UserActionFinished_data()
 {
     QTest::addColumn<QString>("mechanism");

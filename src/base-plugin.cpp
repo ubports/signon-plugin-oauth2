@@ -171,8 +171,6 @@ void BasePlugin::onNetworkError(QNetworkReply::NetworkError err)
 bool BasePlugin::handleNetworkError(QNetworkReply *reply,
                                     QNetworkReply::NetworkError err)
 {
-    Q_D(BasePlugin);
-
     /* Has been handled by handleSslErrors already */
     if (err == QNetworkReply::SslHandshakeFailedError) {
         return true;
@@ -203,4 +201,27 @@ void BasePlugin::handleSslErrors(QList<QSslError> errorList)
     d->disposeReply();
 
     emit error(Error(Error::Ssl, errorString));
+}
+
+bool BasePlugin::handleUiErrors(const SignOn::UiSessionData &data)
+{
+    int code = data.QueryErrorCode();
+    if (code == QUERY_ERROR_NONE) {
+        return false;
+    }
+
+    TRACE() << "userActionFinished with error: " << code;
+    if (code == QUERY_ERROR_CANCELED) {
+        Q_EMIT error(Error(Error::SessionCanceled,
+                           QLatin1String("Cancelled by user")));
+    } else if (code == QUERY_ERROR_NETWORK) {
+        Q_EMIT error(Error(Error::Network, QLatin1String("Network error")));
+    } else if (code == QUERY_ERROR_SSL) {
+        Q_EMIT error(Error(Error::Ssl, QLatin1String("SSL error")));
+    } else {
+        Q_EMIT error(Error(Error::UserInteraction,
+                           QString("userActionFinished error: ")
+                           + QString::number(data.QueryErrorCode())));
+    }
+    return true;
 }
