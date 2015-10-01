@@ -9,7 +9,7 @@ Build-Depends: dbus-test-runner,
                libsignon-qt5-dev,
                pkg-config,
                qt5-default,
-               signon-plugins-dev (>> 8.57+14.10.20140827-0ubuntu1),
+               signon-plugins-dev (>> 8.58),
                xvfb,
 Standards-Version: 3.9.4
 Homepage: http://code.google.com/p/accounts-sso/
