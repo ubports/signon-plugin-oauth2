@@ -69,6 +69,8 @@ protected:
      */
     virtual bool handleNetworkError(QNetworkReply *reply,
                                     QNetworkReply::NetworkError err);
+    bool handleUiErrors(const SignOn::UiSessionData &data);
+
 
 protected Q_SLOTS:
     void onPostFinished();

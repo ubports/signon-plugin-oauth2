@@ -4,8 +4,7 @@ TEMPLATE = lib
 TARGET = oauth2plugin
 DESTDIR = lib/signon
 QT += core \
-    network \
-    xmlpatterns
+    network
 QT -= gui
 CONFIG += plugin \
     build_all \
