@@ -1,10 +1,14 @@
-signon-plugin-oauth2 (0.23-0ubuntu1) UNRELEASED; urgency=medium
+signon-plugin-oauth2 (0.23+16.04.20151028-0ubuntu1) xenial; urgency=medium
 
+  [ Alberto Mardegan ]
   * New upstream release 
     - OAuth: propagate network and SSL errors from SignOnUI (LP: #1349975)
     - Build: remove unused dependency on xmlpatterns, remove unused variables
 
- -- Alberto Mardegan <alberto.mardegan@canonical.com>  Wed, 30 Sep 2015 09:47:50 +0300
+  [ CI Train Bot ]
+  * New rebuild forced.
+
+ -- David Barth <david.barth@canonical.com>  Wed, 28 Oct 2015 15:59:52 +0000
 
 signon-plugin-oauth2 (0.22+15.10.20150603-0ubuntu1) wily; urgency=medium
 
