@@ -142,9 +142,10 @@ void BasePlugin::onPostFinished()
 {
     Q_D(BasePlugin);
 
-    QNetworkReply *reply = (QNetworkReply*)sender();
+    QNetworkReply *reply = d->m_reply;
 
-    TRACE() << "Finished signal received";
+    TRACE() << "Finished signal received - reply object:" << reply;
+    if (Q_UNLIKELY(!reply)) return;
 
     d->disposeReply();
 
@@ -160,9 +161,10 @@ void BasePlugin::onNetworkError(QNetworkReply::NetworkError err)
 {
     Q_D(BasePlugin);
 
-    QNetworkReply *reply = (QNetworkReply*)sender();
+    QNetworkReply *reply = d->m_reply;
 
     TRACE() << "Network error:" << err;
+    if (Q_UNLIKELY(!reply)) return;
 
     handleNetworkError(reply, err);
     d->disposeReply();
