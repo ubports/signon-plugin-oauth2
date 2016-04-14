@@ -71,6 +71,7 @@ const QByteArray CONTENT_TYPE = QByteArray("Content-Type");
 const QByteArray CONTENT_APP_URLENCODED = QByteArray("application/x-www-form-urlencoded");
 const QByteArray CONTENT_APP_JSON = QByteArray("application/json");
 const QByteArray CONTENT_TEXT_PLAIN = QByteArray("text/plain");
+const QByteArray CONTENT_TEXT_HTML = QByteArray("text/html");
 
 
 class OAuth2PluginPrivate
@@ -453,6 +454,7 @@ QVariantMap OAuth2Plugin::parseReply(const QByteArray &contentType,
     }
     // Added for facebook Graph API's (handling text/plain content type)
     else if (contentType.startsWith(CONTENT_TEXT_PLAIN) ||
+             contentType.startsWith(CONTENT_TEXT_HTML) ||
                contentType.startsWith(CONTENT_APP_URLENCODED)) {
         TRACE() << contentType << "content received";
         preferredParser = &OAuth2Plugin::parseTextReply;
