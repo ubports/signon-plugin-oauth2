@@ -2,8 +2,7 @@ Source: signon-plugin-oauth2
 Section: libs
 Priority: optional
 Maintainer: Ubuntu Desktop Team <ubuntu-desktop@lists.ubuntu.com>
-Build-Depends: dbus-test-runner,
-               debhelper (>= 9),
+Build-Depends: debhelper (>= 9),
                gdb,
                libqt5xmlpatterns5-dev,
                libsignon-qt5-dev,
@@ -12,7 +11,7 @@ Build-Depends: dbus-test-runner,
                signon-plugins-dev (>> 8.58),
                xvfb,
 Standards-Version: 3.9.4
-Homepage: http://code.google.com/p/accounts-sso/
+Homepage: https://gitlab.com/accounts-sso/signon-plugin-oauth2
 # If you aren't a member of ~online-accounts but need to upload packaging changes,
 # just go ahead.  ~online-accounts will notice and sync up the code again.
 Vcs-Bzr: https://code.launchpad.net/~online-accounts/signon-plugin-oauth2/trunk
