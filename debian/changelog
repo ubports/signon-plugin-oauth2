@@ -1,3 +1,12 @@
+signon-plugin-oauth2 (0.24-0ubuntu1) UNRELEASED; urgency=medium
+
+  * New upstream release
+    - OAuth2: allow token URL to be on a different host (LP: #1588210)
+    - OAuth2: accept replies carrying text/html content type (LP: #1438393)
+    - Enable CI on gitlab.com
+
+ -- Alberto Mardegan <alberto.mardegan@canonical.com>  Thu, 02 Jun 2016 12:55:49 +0300
+
 signon-plugin-oauth2 (0.23+16.04.20151209-0ubuntu1) xenial; urgency=medium
 
   [ Alberto Mardegan ]
