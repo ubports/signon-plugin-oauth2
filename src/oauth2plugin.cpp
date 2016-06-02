@@ -628,8 +628,11 @@ void OAuth2Plugin::sendOAuth2PostRequest(QUrl &postData,
 
     TRACE();
 
-    QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host())
-             .arg(d->m_oauth2Data.TokenPath()));
+    QUrl url(d->m_oauth2Data.TokenPath());
+    if (url.isRelative()) {
+        url = QUrl(QString("https://%1/%2").arg(d->m_oauth2Data.Host())
+                   .arg(d->m_oauth2Data.TokenPath()));
+    }
     QNetworkRequest request(url);
     request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
 

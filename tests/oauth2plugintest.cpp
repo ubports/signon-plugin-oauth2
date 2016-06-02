@@ -1686,6 +1686,69 @@ void OAuth2PluginTest::testClientAuthentication()
     delete nam;
 }
 
+void OAuth2PluginTest::testTokenPath_data()
+{
+    QTest::addColumn<QString>("host");
+    QTest::addColumn<QString>("tokenPath");
+    QTest::addColumn<QString>("expectedTokenUrl");
+
+    QTest::newRow("relative") <<
+        "localhost" <<
+        "access_token" <<
+        "https://localhost/access_token";
+
+    QTest::newRow("relative with slashes") <<
+        "localhost" <<
+        "path/to/access_token" <<
+        "https://localhost/path/to/access_token";
+
+    QTest::newRow("absolute") <<
+        "localhost" <<
+        "https://another.host/and/a/path" <<
+        "https://another.host/and/a/path";
+}
+
+void OAuth2PluginTest::testTokenPath()
+{
+    QFETCH(QString, host);
+    QFETCH(QString, tokenPath);
+    QFETCH(QString, expectedTokenUrl);
+
+    SignOn::UiSessionData info;
+    OAuth2PluginData data;
+    data.setHost(host);
+    data.setAuthPath("authorize");
+    data.setTokenPath(tokenPath);
+    data.setClientId("104660106251471");
+    data.setRedirectUri("http://localhost/resp.html");
+
+    QSignalSpy result(m_testPlugin, SIGNAL(result(const SignOn::SessionData&)));
+    QSignalSpy error(m_testPlugin, SIGNAL(error(const SignOn::Error &)));
+    QSignalSpy userActionRequired(m_testPlugin,
+                                  SIGNAL(userActionRequired(const SignOn::UiSessionData&)));
+
+    TestNetworkAccessManager *nam = new TestNetworkAccessManager;
+    m_testPlugin->m_networkAccessManager = nam;
+    TestNetworkReply *reply = new TestNetworkReply(this);
+    reply->setStatusCode(200);
+    reply->setContentType("application/json");
+    reply->setContent("{ \"access_token\":\"t0k3n\", \"expires_in\": 3600 }");
+    nam->setNextReply(reply);
+
+    m_testPlugin->process(data, QString("web_server"));
+    QTRY_COMPARE(userActionRequired.count(), 1);
+    QString state = parseState(userActionRequired);
+
+    info.setUrlResponse("http://localhost/resp.html?code=c0d3&state=" + state);
+    m_testPlugin->userActionFinished(info);
+
+    QTRY_COMPARE(result.count(), 1);
+    QCOMPARE(error.count(), 0);
+    QCOMPARE(nam->m_lastRequest.url(), QUrl(expectedTokenUrl));
+
+    delete nam;
+}
+
 //end test cases
 
 QTEST_MAIN(OAuth2PluginTest)

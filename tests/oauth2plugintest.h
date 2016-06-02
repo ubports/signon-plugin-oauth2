@@ -65,6 +65,8 @@ private slots:
     void testRefreshTokenError();
     void testClientAuthentication_data();
     void testClientAuthentication();
+    void testTokenPath_data();
+    void testTokenPath();
 
 private:
     Plugin *m_testPlugin;
