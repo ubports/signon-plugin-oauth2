@@ -2,7 +2,7 @@
  * This file is part of oauth2 plugin
  *
  * Copyright (C) 2010 Nokia Corporation.
- * Copyright (C) 2012 Canonical Ltd.
+ * Copyright (C) 2012-2016 Canonical Ltd.
  *
  * Contact: Alberto Mardegan <alberto.mardegan@canonical.com>
  *
@@ -71,6 +71,7 @@ const QByteArray CONTENT_TYPE = QByteArray("Content-Type");
 const QByteArray CONTENT_APP_URLENCODED = QByteArray("application/x-www-form-urlencoded");
 const QByteArray CONTENT_APP_JSON = QByteArray("application/json");
 const QByteArray CONTENT_TEXT_PLAIN = QByteArray("text/plain");
+const QByteArray CONTENT_TEXT_HTML = QByteArray("text/html");
 
 
 class OAuth2PluginPrivate
@@ -453,6 +454,7 @@ QVariantMap OAuth2Plugin::parseReply(const QByteArray &contentType,
     }
     // Added for facebook Graph API's (handling text/plain content type)
     else if (contentType.startsWith(CONTENT_TEXT_PLAIN) ||
+             contentType.startsWith(CONTENT_TEXT_HTML) ||
                contentType.startsWith(CONTENT_APP_URLENCODED)) {
         TRACE() << contentType << "content received";
         preferredParser = &OAuth2Plugin::parseTextReply;
@@ -626,8 +628,11 @@ void OAuth2Plugin::sendOAuth2PostRequest(QUrl &postData,
 
     TRACE();
 
-    QUrl url(QString("https://%1/%2").arg(d->m_oauth2Data.Host())
-             .arg(d->m_oauth2Data.TokenPath()));
+    QUrl url(d->m_oauth2Data.TokenPath());
+    if (url.isRelative()) {
+        url = QUrl(QString("https://%1/%2").arg(d->m_oauth2Data.Host())
+                   .arg(d->m_oauth2Data.TokenPath()));
+    }
     QNetworkRequest request(url);
     request.setRawHeader(CONTENT_TYPE, CONTENT_APP_URLENCODED);
 

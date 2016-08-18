@@ -2,6 +2,7 @@
  * This file is part of oauth2 plugin
  *
  * Copyright (C) 2010 Nokia Corporation.
+ * Copyright (C) 2012-2016 Canonical Ltd.
  *
  * Contact: Alberto Mardegan <alberto.mardegan@nokia.com>
  *
