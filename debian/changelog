@@ -1,4 +1,4 @@
-signon-plugin-oauth2 (0.24-0ubuntu1) UNRELEASED; urgency=medium
+signon-plugin-oauth2 (0.24+16.10.20160818-0ubuntu1) yakkety; urgency=medium
 
   * New upstream release
     - OAuth2: allow token URL to be on a different host (LP: #1588210)
@@ -8,7 +8,7 @@ signon-plugin-oauth2 (0.24-0ubuntu1) UNRELEASED; urgency=medium
     - Don't run tests in dbus-test-runner
     - Update link to project homepage
 
- -- Alberto Mardegan <alberto.mardegan@canonical.com>  Thu, 02 Jun 2016 12:55:49 +0300
+ -- Alberto Mardegan <mardy@users.sourceforge.net>  Thu, 18 Aug 2016 07:22:39 +0000
 
 signon-plugin-oauth2 (0.23+16.04.20151209-0ubuntu1) xenial; urgency=medium
 
