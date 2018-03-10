@@ -1,3 +1,9 @@
+signon-plugin-oauth2 (0.25+ubports) xenial; urgency=medium
+
+  * Imported to UBports
+
+ -- UBports auto importer <infra@ubports.com>  Sat, 10 Mar 2018 19:57:40 +0000
+
 signon-plugin-oauth2 (0.24+16.10.20160818-0ubuntu1) yakkety; urgency=medium
 
   * New upstream release
